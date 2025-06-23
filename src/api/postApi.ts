@@ -9,20 +9,16 @@ export function getPosts() {
   return fetchPosts;
 }
 
-
-export async function toggleLikePost(postId: string ,token) {
-
-  const likeRequest = async () => {
-
-    const { data } = await axios.post(
-      `http://localhost:5000/api/posts/${postId}/like`,
-      {
-        headers: {
-          Authorization:token
-        },
-      }
-    );
-    return data;
-  };
-return likeRequest
+export async function toggleLikePost(postId: string, token) {
+  const response = await axios.post(
+    `http://localhost:5000/api/posts/${postId}/like`,
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+  console.log(response.data)
+  return response.data;
 }

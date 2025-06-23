@@ -23,32 +23,43 @@ export default function Register() {
 
   const navigate = useNavigate();
   async function handelRegister(values: registerValues) {
- 
-    register(values )
+    register(values)
       .then(() => {
         setError(null);
         console.log("registered !");
         navigate("/login");
       })
-
-
       .catch((apiResponse) => {
-        apiResponse.response?.data?.errors ?  setError(apiResponse.response?.data?.errors) : setError(apiResponse.response?.data?.message)
+        apiResponse.response?.data?.errors
+          ? setError(apiResponse.response?.data?.errors)
+          : setError(apiResponse.response?.data?.message);
       });
-
-      
   }
-     
- 
+    
 
   const validationSchema = Yup.object().shape({
-    username: Yup.string().min(3,'minimum length for username is 3 letters').max(10,'maximum length for username is 15 letters').required('username is required'),
-    name: Yup.string().min(3,'minimum length for name is 3 letters').max(10,'maximum length for name is 15 letters').required('name is required'),
-    email : Yup.string().email('please enter valid email').required('email is required'),
-    password:Yup.string().matches(/^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$ %^&*-]).{8,}$/,'password must be with minimum 8 characters, at least one upper case English letter, one lower case English letter, one number and one special character').required('password is required'),
-    confirmPassword:Yup.string().oneOf([Yup.ref('password')],'passwords must match')  .required('password is required'),
-    profileImage:Yup.mixed().nullable()
-  })
+    username: Yup.string()
+      .min(3, "minimum length for username is 3 letters")
+      .max(15, "maximum length for username is 15 letters")
+      .required("username is required"),
+    name: Yup.string()
+      .min(3, "minimum length for name is 3 letters")
+      .max(30, "maximum length for name is 30 letters")
+      .required("name is required"),
+    email: Yup.string()
+      .email("please enter valid email")
+      .required("email is required"),
+    password: Yup.string()
+      .matches(
+        /^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$ %^&*-]).{8,}$/,
+        "password must be with minimum 8 characters, at least one upper case English letter, one lower case English letter, one number and one special character"
+      )
+      .required("password is required"),
+    confirmPassword: Yup.string()
+      .oneOf([Yup.ref("password")], "passwords must match")
+      .required("password is required"),
+    profileImage: Yup.mixed().nullable(),
+  });
 
   const formik = useFormik({
     initialValues: {
@@ -224,13 +235,6 @@ export default function Register() {
                       type="file"
                       accept="image/*"
                       name="profileImage"
-                      // onChange={(e) =>
-                      //   formik.setFieldValue(
-                      //     "profileImage",
-                      //     e.currentTarget.files?.[0]
-                      //   )
-                      // }
-
                       onChange={(e) => {
                         const file = e.currentTarget.files?.[0];
                         if (file) {

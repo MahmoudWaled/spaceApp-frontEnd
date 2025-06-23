@@ -11,6 +11,7 @@ import {
 
 type UserData = {
   name: string;
+  username:string;
   email: string;
   avatar: string;
   id:string;
@@ -47,7 +48,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     getProfile(decoded.id)
       .then((res) => {
         setUserData({
-          name: res.username,
+          name: res.name,
+          username :res.username,
           email: res.email,
           id:decoded.id
           ,
