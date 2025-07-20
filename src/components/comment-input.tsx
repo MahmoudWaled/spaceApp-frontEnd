@@ -1,38 +1,58 @@
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Send } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useContext } from "react";
+import { Send } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { UserContext } from "@/context/UserContext";
 
 interface CommentInputProps {
-  onSubmit?: (content: string) => void
-  placeholder?: string
+  onSubmit?: (content: string) => void;
+  placeholder?: string;
 }
 
-export function CommentInput({ onSubmit, placeholder = "Write a comment..." }: CommentInputProps) {
-  const [content, setContent] = useState("")
+export function CommentInput({
+  onSubmit,
+  placeholder = "Write a comment...",
+}: CommentInputProps) {
+  const [content, setContent] = useState("");
+  const context = useContext(UserContext);
+  const userData = context?.userData;
 
   const handleSubmit = () => {
     if (content.trim()) {
-      onSubmit?.(content.trim())
-      setContent("")
+      onSubmit?.(content.trim());
+      setContent("");
     }
-  }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit()
+      e.preventDefault();
+      handleSubmit();
     }
-  }
+  };
 
   return (
     <div className="flex space-x-3">
       <Avatar className="h-8 w-8">
-        <AvatarImage src="/placeholder-avatar.jpg" alt="Your avatar" />
-        <AvatarFallback className="bg-red-500 text-white text-xs">U</AvatarFallback>
+        <AvatarImage
+          src={
+            userData?.avatar
+              ? `http://localhost:5000/Uploads/${userData.avatar}`
+              : "/placeholder.svg"
+          }
+          alt={userData?.name || "Your avatar"}
+        />
+        <AvatarFallback className="bg-red-500 text-white text-xs">
+          {userData?.name
+            ? userData.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+            : "U"}
+        </AvatarFallback>
       </Avatar>
 
       <div className="flex-1 space-y-2">
@@ -45,12 +65,17 @@ export function CommentInput({ onSubmit, placeholder = "Write a comment..." }: C
         />
 
         <div className="flex justify-end">
-          <Button onClick={handleSubmit} disabled={!content.trim()} size="sm" className="bg-red-500 hover:bg-red-600">
+          <Button
+            onClick={handleSubmit}
+            disabled={!content.trim()}
+            size="sm"
+            className="bg-red-500 hover:bg-red-600"
+          >
             <Send className="h-4 w-4 mr-2" />
             Comment
           </Button>
         </div>
       </div>
     </div>
-  )
+  );
 }
