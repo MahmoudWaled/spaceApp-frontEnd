@@ -1,36 +1,60 @@
-"use client"
+"use client";
 
-import { useContext, useState } from "react"
-import { Search, Bell, MessageCircle, Menu, Settings, User, LogOut, Globe } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useContext, useState } from "react";
+import {
+  Search,
+  Bell,
+  MessageCircle,
+  Menu,
+  Settings,
+  User,
+  LogOut,
+  Globe,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { ThemeToggle } from "../theme-toggle"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { useNavigate } from "react-router-dom"
-import { UserContext } from "@/context/UserContext"
+} from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "../theme-toggle";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useNavigate } from "react-router-dom";
+import { UserContext } from "@/context/UserContext";
+import { CustomDropdown } from "../CustomDropdown";
 
 export function Navbar() {
-  const [isSearchFocused, setIsSearchFocused] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
-  const recentSearches = ["Space exploration", "Mars mission", "Astronomy news", "NASA updates", "SpaceX launch"]
+  const recentSearches = [
+    "Space exploration",
+    "Mars mission",
+    "Astronomy news",
+    "NASA updates",
+    "SpaceX launch",
+  ];
 
- const loggedUser = useContext(UserContext)
-  
-  const navigate = useNavigate()
-function logOutHandler(){
-    localStorage.removeItem('token');
-    navigate('/login')
-  }
+  const loggedUser = useContext(UserContext);
+
+  const navigate = useNavigate();
+  const logOutHandler = () => {
+    localStorage.removeItem("token");
+    if (loggedUser?.setUserData) loggedUser.setUserData(null);
+    if (loggedUser?.setUserToken) loggedUser.setUserToken(null);
+    navigate("/login");
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
@@ -53,7 +77,9 @@ function logOutHandler(){
               <Input
                 type="search"
                 placeholder="Search Space topics..."
-                className={`pl-10 transition-all duration-200 ${isSearchFocused ? "ring-2 ring-red-500" : ""}`}
+                className={`pl-10 transition-all duration-200 ${
+                  isSearchFocused ? "ring-2 ring-red-500" : ""
+                }`}
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
               />
@@ -75,10 +101,17 @@ function logOutHandler(){
                 <div className="space-y-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input type="search" placeholder="Search Space topics..." className="pl-10" autoFocus />
+                    <Input
+                      type="search"
+                      placeholder="Search Space topics..."
+                      className="pl-10"
+                      autoFocus
+                    />
                   </div>
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-muted-foreground">Recent Searches</h4>
+                    <h4 className="text-sm font-medium text-muted-foreground">
+                      Recent Searches
+                    </h4>
                     {recentSearches.map((search, index) => (
                       <Button
                         key={index}
@@ -109,31 +142,40 @@ function logOutHandler(){
               <MessageCircle className="w-5 h-5" />
             </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={loggedUser?.userData?.avatar ? `http://localhost:5000/Uploads/${loggedUser?.userData?.avatar}`:"/placeholder-avatar.jpg" } alt="User" />
-                    <AvatarFallback className="bg-red-500 text-white">U</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600">
-                  <LogOut onClick={logOutHandler}  className="mr-2 h-4 w-4" />
-                  <span onClick={logOutHandler}>Sign Out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CustomDropdown
+              triggerClassName="h-8 w-8 rounded-full"
+              contentClassName="w-56"
+              items={[
+                {
+                  label: "Profile",
+                  onClick: () =>
+                    navigate(`/profile/${loggedUser?.userData?.id}`),
+                },
+                {
+                  label: "Settings",
+                  onClick: () => navigate("/settings"),
+                },
+                {
+                  label: "Sign Out",
+                  onClick: logOutHandler,
+                  className: "text-red-600",
+                },
+              ]}
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={
+                    loggedUser?.userData?.avatar
+                      ? `http://localhost:5000/Uploads/${loggedUser?.userData?.avatar}`
+                      : "/placeholder-avatar.jpg"
+                  }
+                  alt="User"
+                />
+                <AvatarFallback className="bg-red-500 text-white">
+                  U
+                </AvatarFallback>
+              </Avatar>
+            </CustomDropdown>
           </div>
 
           {/* Mobile Menu */}
@@ -166,31 +208,57 @@ function logOutHandler(){
                   <div className="border-t pt-4 mt-4">
                     <div className="flex items-center space-x-3 mb-4">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={loggedUser?.userData?.avatar ? `http://localhost:5000/Uploads/${loggedUser?.userData?.avatar}`:"/placeholder-avatar.jpg" } alt="User" />
-                        <AvatarFallback className="bg-red-500 text-white">U</AvatarFallback>
+                        <AvatarImage
+                          src={
+                            loggedUser?.userData?.avatar
+                              ? `http://localhost:5000/Uploads/${loggedUser?.userData?.avatar}`
+                              : "/placeholder-avatar.jpg"
+                          }
+                          alt="User"
+                        />
+                        <AvatarFallback className="bg-red-500 text-white">
+                          U
+                        </AvatarFallback>
                       </Avatar>
                       <div>
                         <p className="font-medium">John Doe</p>
-                        <p className="text-sm text-muted-foreground">@johndoe</p>
+                        <p className="text-sm text-muted-foreground">
+                          @johndoe
+                        </p>
                       </div>
                     </div>
 
-                    <Button variant="ghost" className="justify-start w-full" size="sm">
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full"
+                      size="sm"
+                      onClick={() =>
+                        navigate(`/profile/${loggedUser?.userData?.id}`)
+                      }
+                    >
                       <User className="mr-2 w-4 h-4" />
                       Profile
                     </Button>
 
-                    <Button variant="ghost" className="justify-start w-full" size="sm">
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full"
+                      size="sm"
+                    >
                       <Settings className="mr-2 w-4 h-4" />
                       Settings
                     </Button>
 
-                    <Button variant="ghost" className="justify-start w-full text-red-600" size="sm">
-                      <LogOut onClick={logOutHandler} className="mr-2 w-4 h-4" />
-                      <span onClick={logOutHandler} >
-
-                      Sign Out
-                      </span>
+                    <Button
+                      variant="ghost"
+                      className="justify-start w-full text-red-600"
+                      size="sm"
+                    >
+                      <LogOut
+                        onClick={logOutHandler}
+                        className="mr-2 w-4 h-4"
+                      />
+                      <span onClick={logOutHandler}>Sign Out</span>
                     </Button>
                   </div>
                 </div>
@@ -200,5 +268,5 @@ function logOutHandler(){
         </div>
       </div>
     </nav>
-  )
+  );
 }

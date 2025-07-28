@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { EditDialog } from "./EditDialog";
+import { CustomDropdown } from "./CustomDropdown";
 
 interface CommentUser {
   id: string;
@@ -30,6 +31,7 @@ interface CommentProps {
     likes: number;
     isLiked: boolean;
   };
+  currentUserId?: string;
   onLike?: () => void;
   onReply?: () => void;
   onEdit?: (content: string) => void;
@@ -39,6 +41,7 @@ interface CommentProps {
 
 export function Comment({
   comment,
+  currentUserId,
   onLike,
   onReply,
   onEdit,
@@ -103,14 +106,14 @@ export function Comment({
           <p className="text-sm">{comment.content}</p>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center space-x-4 flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLike}
               className={cn(
-                "flex items-center space-x-1 h-6 px-2 hover:bg-red-50 dark:hover:bg-red-950/20",
+                "flex items-center space-x-1 h-6 px-2 hover:bg-red-50 dark:hover:bg-red-950/20 flex-shrink-0",
                 isLiked && "text-red-500"
               )}
             >
@@ -124,31 +127,34 @@ export function Comment({
               variant="ghost"
               size="sm"
               onClick={onReply}
-              className="text-xs text-muted-foreground hover:text-foreground h-6 px-2"
+              className="text-xs text-muted-foreground hover:text-foreground h-6 px-2 flex-shrink-0"
             >
               Reply
             </Button>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <MoreHorizontal className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleEditComment}>
-                Edit Comment
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDelete} className="text-red-600">
-                Delete Comment
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={onReport}>
-                Report Comment
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <CustomDropdown
+            triggerClassName="h-6 w-6"
+            items={[
+              ...(currentUserId === comment.user.id
+                ? [
+                    {
+                      label: "Edit ",
+                      onClick: handleEditComment,
+                    },
+                    {
+                      label: "Delete",
+                      onClick: onDelete || (() => {}),
+                      className: "text-red-600",
+                    },
+                  ]
+                : []),
+              {
+                label: "Report",
+                onClick: onReport || (() => {}),
+              },
+            ]}
+          />
         </div>
       </div>
 

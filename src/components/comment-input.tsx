@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { UserContext } from "@/context/UserContext";
 
 interface CommentInputProps {
-  onSubmit?: (content: string) => void;
+  onSubmit?: (content: string) => Promise<boolean>;
   placeholder?: string;
 }
 
@@ -20,10 +20,10 @@ export function CommentInput({
   const context = useContext(UserContext);
   const userData = context?.userData;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (content.trim()) {
-      onSubmit?.(content.trim());
-      setContent("");
+      const success = await onSubmit?.(content.trim());
+      if (success) setContent("");
     }
   };
 

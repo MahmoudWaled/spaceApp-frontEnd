@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Post } from "../../components/Post/Post";
+import { CreatePost } from "../../components/CreatePost";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import {
   getPosts,
   toggleLikePost,
@@ -8,6 +10,7 @@ import {
   updatePost,
   deleteComment,
   updateComment,
+  createPost,
 } from "@/api/postApi";
 import { UserContext } from "@/context/UserContext";
 
@@ -60,15 +63,34 @@ export function HomePage() {
   if (!context) throw new Error("UserContext missing");
   const { userData } = context;
   const [posts, setPosts] = useState<PostType[]>([]);
+  const [deletePostDialog, setDeletePostDialog] = useState<{
+    isOpen: boolean;
+    postId: string | null;
+  }>({ isOpen: false, postId: null });
+  const [deleteCommentDialog, setDeleteCommentDialog] = useState<{
+    isOpen: boolean;
+    postId: string | null;
+    commentId: string | null;
+  }>({ isOpen: false, postId: null, commentId: null });
 
-  useEffect(() => {
-    console.log("Fetching posts...");
+  // Helper function to fetch posts with like status
+  const fetchPostsWithLikeStatus = () => {
     const response = getPosts();
     response().then((data) => {
-      console.log("Posts fetched:", data.length, "posts");
-      setPosts(data);
+      const postsWithLikeStatus = data.map((post: any) => {
+        const userId = userData?.id;
+        const isLiked = userId
+          ? post.likes.some((like: any) => like._id === userId)
+          : false;
+        return { ...post, isLiked };
+      });
+      setPosts(postsWithLikeStatus);
     });
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchPostsWithLikeStatus();
+  }, [userData?.id]);
 
   function handleLike(postId: string) {
     if (!context?.userToken) {
@@ -89,11 +111,13 @@ export function HomePage() {
           ? post.likes.filter((like) => like._id !== userId)
           : [...post.likes, { _id: userId!, username: username! }];
 
-        return {
+        const updatedPost = {
           ...post,
           likes: updatedLikes,
           isLiked: !alreadyLiked,
         };
+
+        return updatedPost;
       })
     );
 
@@ -101,7 +125,6 @@ export function HomePage() {
     toggleLikePost(postId, context.userToken)
       .then(() => {
         // API call successful, no need to update state again
-        console.log("Like toggled successfully");
       })
       .catch((err) => {
         console.error("Error toggling like:", err);
@@ -129,15 +152,57 @@ export function HomePage() {
       });
   }
 
-  const handleDeletePost = (postId: string) => {
+  const handleCreatePost = async (content: string, image?: File) => {
     if (!context?.userToken) {
       console.error("User not authenticated");
       return;
     }
 
-    if (!confirm("Are you sure you want to delete this post?")) {
-      return;
+    try {
+      const newPost = await createPost(content, image, context.userToken);
+
+      // Ensure the new post has the correct structure
+      const formattedPost: PostType = {
+        _id: newPost._id,
+        content: newPost.content,
+        image: newPost.image || null,
+        author: {
+          _id: newPost.author._id,
+          username: newPost.author.username,
+          name: newPost.author.name,
+          profileImage: newPost.author.profileImage || "",
+        },
+        createdAt: newPost.createdAt,
+        updatedAt: newPost.updatedAt || newPost.createdAt,
+        comments: newPost.comments || [],
+        likes: newPost.likes || [],
+        isLiked: false, // New posts are not liked by the author
+      };
+
+      // Add the new post to the beginning of the list
+      setPosts((prevPosts) => {
+        const updatedPosts = [formattedPost, ...prevPosts];
+        return updatedPosts;
+      });
+    } catch (err: any) {
+      console.error("Error creating post:", err);
+      console.error("Error details:", err.response?.data || err.message);
+
+      // If there's an error, refresh the posts to ensure consistency
+      fetchPostsWithLikeStatus();
+
+      alert("Failed to create post. Please try again.");
     }
+  };
+
+  const handleDeletePost = (postId: string) => {
+    setDeletePostDialog({ isOpen: true, postId });
+  };
+
+  const confirmDeletePost = () => {
+    if (!deletePostDialog.postId || !context?.userToken) return;
+
+    const postId = deletePostDialog.postId;
 
     // Optimistically remove the post from UI
     setPosts((prevPosts) => prevPosts.filter((post) => post._id !== postId));
@@ -151,8 +216,7 @@ export function HomePage() {
         console.error("Error deleting post:", err);
         alert("Failed to delete post. Please try again.");
         // Revert the optimistic update on error
-        const response = getPosts();
-        response().then((data) => setPosts(data));
+        fetchPostsWithLikeStatus();
       });
   };
 
@@ -182,20 +246,23 @@ export function HomePage() {
         console.error("Error updating post:", err);
         alert("Failed to update post. Please try again.");
         // Revert the optimistic update on error
-        const response = getPosts();
-        response().then((data) => setPosts(data));
+        fetchPostsWithLikeStatus();
       });
   };
 
   const handleDeleteComment = (postId: string, commentId: string) => {
-    if (!context?.userToken) {
-      console.error("User not authenticated");
-      return;
-    }
+    setDeleteCommentDialog({ isOpen: true, postId, commentId });
+  };
 
-    if (!confirm("Are you sure you want to delete this comment?")) {
+  const confirmDeleteComment = () => {
+    if (
+      !deleteCommentDialog.postId ||
+      !deleteCommentDialog.commentId ||
+      !context?.userToken
+    )
       return;
-    }
+
+    const { postId, commentId } = deleteCommentDialog;
 
     // Optimistically remove the comment from UI
     setPosts((prevPosts) =>
@@ -219,8 +286,7 @@ export function HomePage() {
         console.error("Error deleting comment:", err);
         alert("Failed to delete comment. Please try again.");
         // Revert the optimistic update on error
-        const response = getPosts();
-        response().then((data) => setPosts(data));
+        fetchPostsWithLikeStatus();
       });
   };
 
@@ -260,8 +326,7 @@ export function HomePage() {
         console.error("Error updating comment:", err);
         alert("Failed to update comment. Please try again.");
         // Revert the optimistic update on error
-        const response = getPosts();
-        response().then((data) => setPosts(data));
+        fetchPostsWithLikeStatus();
       });
   };
 
@@ -270,8 +335,6 @@ export function HomePage() {
       console.error("User not authenticated");
       return;
     }
-
-    console.log("Adding comment to post:", postId, "Content:", content);
 
     const tempId = `temp-${Date.now()}`;
 
@@ -289,27 +352,16 @@ export function HomePage() {
       likes: [],
     };
 
-    console.log("Optimistic comment:", newComment);
-
-    // Add the comment optimistically
+    // Add the comment optimistically at the top
     setPosts((prevPosts) => {
-      console.log("Current posts before update:", prevPosts.length);
       const updatedPosts = prevPosts.map((post) => {
         if (post._id !== postId) return post;
-        console.log(
-          "Adding comment to post:",
-          post._id,
-          "Current comments:",
-          post.comments.length
-        );
         const updatedPost = {
           ...post,
-          comments: [...post.comments, newComment],
+          comments: [newComment, ...post.comments], // Add to top
         };
-        console.log("Updated post comments:", updatedPost.comments.length);
         return updatedPost;
       });
-      console.log("Updated posts:", updatedPosts.length);
       return updatedPosts;
     });
 
@@ -327,7 +379,30 @@ export function HomePage() {
               return {
                 ...post,
                 comments: post.comments.map((comment) =>
-                  comment._id === tempId ? response : comment
+                  comment._id === tempId
+                    ? {
+                        _id: response._id,
+                        text: response.text,
+                        createdAt: response.createdAt,
+                        likes: response.likes || [],
+                        author: {
+                          _id:
+                            response.author?._id || context.userData?.id || "",
+                          username:
+                            response.author?.username ||
+                            context.userData?.username ||
+                            "",
+                          name:
+                            response.author?.name ||
+                            context.userData?.name ||
+                            "",
+                          profileImage:
+                            response.author?.profileImage ||
+                            context.userData?.avatar ||
+                            "",
+                        },
+                      }
+                    : comment
                 ),
               };
             })
@@ -358,55 +433,106 @@ export function HomePage() {
   };
 
   return (
-    <div className="container mx-auto py-8 max-w-2xl">
+    <div className="container mx-auto py-8 max-w-2xl overflow-x-hidden">
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-center">Welcome to Space</h1>
 
+        {/* Create Post Section */}
+        <CreatePost onSubmit={handleCreatePost} />
+
         <div className="space-y-6">
-          {posts?.map((post) => (
-            <Post
-              key={post._id}
-              id={post._id}
-              images={post.image ? [post.image] : []}
-              comments={post.comments.map((comment: any) => ({
-                id: comment._id,
-                content: comment.text,
-                timestamp: comment.createdAt,
-                likes: Array.isArray(comment.likes) ? comment.likes.length : 0,
-                isLiked: Array.isArray(comment.likes)
-                  ? comment.likes.includes(userData?.id)
-                  : false,
-                user: {
-                  id: comment.author._id,
-                  username: comment.author.username,
-                  name: comment.author.name,
-                  image: comment.author.profileImage,
-                },
-              }))}
-              content={post.content}
-              timestamp={post.createdAt}
-              user={{
-                id: post.author._id,
-                username: post.author.username,
-                name: post.author.name,
-                image: post.author.profileImage,
-              }}
-              likes={post.likes.length}
-              isLiked={post.isLiked}
-              onLike={() => handleLike(post._id)}
-              onComment={(content) => handleComment(post._id, content)}
-              onEdit={(content) => handleEditPost(post._id, content)}
-              onDelete={() => handleDeletePost(post._id)}
-              onEditComment={(commentId, content) =>
-                handleEditComment(post._id, commentId, content)
-              }
-              onDeleteComment={(commentId) =>
-                handleDeleteComment(post._id, commentId)
-              }
-            />
-          ))}
+          {posts?.map((post) => {
+            try {
+              return (
+                <Post
+                  key={post._id}
+                  id={post._id}
+                  images={post.image ? [post.image] : []}
+                  comments={post.comments.map((comment: any) => ({
+                    id: comment._id,
+                    content: comment.text,
+                    timestamp: comment.createdAt,
+                    likes: Array.isArray(comment.likes)
+                      ? comment.likes.length
+                      : 0,
+                    isLiked: Array.isArray(comment.likes)
+                      ? comment.likes.includes(userData?.id)
+                      : false,
+                    user: {
+                      id: comment.author._id,
+                      username: comment.author.username,
+                      name: comment.author.name,
+                      image: comment.author.profileImage,
+                    },
+                  }))}
+                  content={post.content}
+                  timestamp={post.createdAt}
+                  user={{
+                    id: post.author._id,
+                    username: post.author.username,
+                    name: post.author.name,
+                    image: post.author.profileImage,
+                  }}
+                  likes={post.likes.length}
+                  isLiked={post.isLiked}
+                  onLike={() => handleLike(post._id)}
+                  onComment={(content) => handleComment(post._id, content)}
+                  onEdit={(content) => handleEditPost(post._id, content)}
+                  onDelete={() => handleDeletePost(post._id)}
+                  currentUserId={userData?.id}
+                  onEditComment={(commentId, content) =>
+                    handleEditComment(post._id, commentId, content)
+                  }
+                  onDeleteComment={(commentId) =>
+                    handleDeleteComment(post._id, commentId)
+                  }
+                />
+              );
+            } catch (error) {
+              console.error("Error rendering post:", post._id, error);
+              return (
+                <div
+                  key={post._id}
+                  className="p-4 border rounded-lg bg-red-50 dark:bg-red-950/20"
+                >
+                  <p className="text-red-600">
+                    Error rendering post. Please refresh the page.
+                  </p>
+                </div>
+              );
+            }
+          })}
         </div>
       </div>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        isOpen={deletePostDialog.isOpen}
+        onClose={() => setDeletePostDialog({ isOpen: false, postId: null })}
+        onConfirm={confirmDeletePost}
+        title="Delete Post"
+        description="Are you sure you want to delete this post? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
+
+      <ConfirmDialog
+        isOpen={deleteCommentDialog.isOpen}
+        onClose={() =>
+          setDeleteCommentDialog({
+            isOpen: false,
+            postId: null,
+            commentId: null,
+          })
+        }
+        onConfirm={confirmDeleteComment}
+        title="Delete Comment"
+        description="Are you sure you want to delete this comment? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </div>
   );
 }

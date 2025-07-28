@@ -1,3 +1,88 @@
 html {
   overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+/* Ensure scrollbar is always visible to prevent layout shifts */
+body {
+  overflow-x: hidden;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+/* Webkit scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* Prevent layout shifts from dropdowns and buttons */
+body {
+  overflow-x: hidden;
+}
+
+/* Ensure consistent button sizing */
+button {
+  box-sizing: border-box;
+}
+
+/* Prevent flex items from shrinking unexpectedly */
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+/* Prevent layout shifts from dropdowns */
+[data-radix-popper-content-wrapper] {
+  position: fixed !important;
+}
+
+/* Ensure buttons don't change size on state changes */
+button:focus,
+button:hover,
+button:active {
+  transform: none !important;
+}
+
+/* Prevent any layout shifts */
+* {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Force stable layout for dropdown containers */
+[data-radix-dropdown-menu-trigger] {
+  position: relative !important;
+  transform: none !important;
+}
+
+/* Prevent dropdown from affecting parent layout */
+[data-radix-dropdown-menu-content] {
+  position: fixed !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure the main container doesn't shift */
+.container {
+  position: relative !important;
+  transform: none !important;
+}
+
+/* Prevent any margin/padding changes */
+.card,
+.card-content {
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
 }

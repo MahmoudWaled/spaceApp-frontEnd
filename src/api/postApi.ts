@@ -3,7 +3,6 @@ import axios from "axios";
 export function getPosts() {
   const fetchPosts = async () => {
     const { data } = await axios.get("http://localhost:5000/api/posts");
-    console.log("Fetched posts:", data);
     return data;
   };
   return fetchPosts;
@@ -19,7 +18,6 @@ export async function toggleLikePost(postId: string, token: string) {
       },
     }
   );
-  console.log(response.data);
   return response.data;
 }
 
@@ -29,65 +27,25 @@ export async function addComment(
   token: string
 ) {
   try {
-    // Try multiple possible endpoints
-    const endpoints = [
-      `http://localhost:5000/api/posts/${postId}/comments`,
-      `http://localhost:5000/api/posts/${postId}/comment`,
-      `http://localhost:5000/api/comments`,
-      `http://localhost:5000/api/comment`,
-      `http://localhost:5000/api/posts/${postId}/reply`,
-      `http://localhost:5000/api/comments/${postId}`,
-    ];
+    const endpoint = `http://localhost:5000/api/comments/${postId}`;
+    const payload = { text: content };
 
-    const payloads = [
-      { text: content },
-      { text: content, postId: postId },
-      { content: content, postId: postId },
-      { message: content, postId: postId },
-    ];
+    const response = await axios.post(endpoint, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-    console.log("Testing multiple endpoints for comment...");
-
-    for (const endpoint of endpoints) {
-      for (const payload of payloads) {
-        try {
-          console.log(`Trying: ${endpoint} with payload:`, payload);
-
-          const response = await axios.post(endpoint, payload, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-
-          console.log("✅ SUCCESS! Comment API response:", response.data);
-          console.log("Working endpoint:", endpoint);
-          console.log("Working payload:", payload);
-          return response.data;
-        } catch (error: any) {
-          if (error.response?.status !== 404) {
-            console.log(
-              `❌ ${endpoint} failed with status ${error.response?.status}:`,
-              error.response?.data
-            );
-          }
-          // Continue to next combination
-        }
-      }
-    }
-
-    // If we get here, none of the combinations worked
-    throw new Error("No working comment endpoint found");
+    return response.data;
   } catch (error: any) {
-    console.error("All comment endpoints failed:", error);
+    console.error("Comment endpoint failed:", error);
     throw error;
   }
 }
 
 export async function deletePost(postId: string, token: string) {
   try {
-    console.log("Deleting post:", postId);
-
     const response = await axios.delete(
       `http://localhost:5000/api/posts/${postId}`,
       {
@@ -97,7 +55,6 @@ export async function deletePost(postId: string, token: string) {
       }
     );
 
-    console.log("Post deleted successfully:", response.data);
     return response.data;
   } catch (error: any) {
     console.error("Error deleting post:", error);
@@ -111,8 +68,6 @@ export async function updatePost(
   token: string
 ) {
   try {
-    console.log("Updating post:", postId, "Content:", content);
-
     const response = await axios.put(
       `http://localhost:5000/api/posts/${postId}`,
       { content },
@@ -124,7 +79,6 @@ export async function updatePost(
       }
     );
 
-    console.log("Post updated successfully:", response.data);
     return response.data;
   } catch (error: any) {
     console.error("Error updating post:", error);
@@ -134,8 +88,6 @@ export async function updatePost(
 
 export async function deleteComment(commentId: string, token: string) {
   try {
-    console.log("Deleting comment:", commentId);
-
     const response = await axios.delete(
       `http://localhost:5000/api/comments/${commentId}`,
       {
@@ -145,7 +97,6 @@ export async function deleteComment(commentId: string, token: string) {
       }
     );
 
-    console.log("Comment deleted successfully:", response.data);
     return response.data;
   } catch (error: any) {
     console.error("Error deleting comment:", error);
@@ -159,8 +110,6 @@ export async function updateComment(
   token: string
 ) {
   try {
-    console.log("Updating comment:", commentId, "Content:", content);
-
     const response = await axios.put(
       `http://localhost:5000/api/comments/${commentId}`,
       { text: content },
@@ -172,10 +121,39 @@ export async function updateComment(
       }
     );
 
-    console.log("Comment updated successfully:", response.data);
     return response.data;
   } catch (error: any) {
     console.error("Error updating comment:", error);
+    throw error;
+  }
+}
+
+export async function createPost(
+  content: string,
+  image?: File,
+  token?: string
+) {
+  try {
+    const formData = new FormData();
+    formData.append("content", content);
+    if (image) {
+      formData.append("image", image);
+    }
+
+    const response = await axios.post(
+      `http://localhost:5000/api/posts`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error creating post:", error);
     throw error;
   }
 }
