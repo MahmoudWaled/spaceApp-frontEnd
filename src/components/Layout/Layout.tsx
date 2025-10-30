@@ -10,12 +10,7 @@ import { Outlet } from "react-router-dom";
 export function Layout() {
   return (
     <>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <div className="min-h-screen  flex flex-col">
           <Navbar />
           <div className="flex flex-1 pt-16">

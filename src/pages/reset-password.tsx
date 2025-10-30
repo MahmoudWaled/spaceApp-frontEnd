@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useSearchParams, useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { resetPassword } from "@/api/authApi";
 import {
   Card,

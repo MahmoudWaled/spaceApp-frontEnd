@@ -7,7 +7,7 @@ type LoginValues = {
 
 export async function login(values: LoginValues) {
   const response = await axios.post(
-    "http://localhost:5000/api/auth/login",
+    "http://space-app-production.up.railway.app/api/auth/login",
     values
   );
   return response.data;
@@ -35,7 +35,7 @@ export async function register(values: registerValues) {
   }
 
   const response = await axios.post(
-    "http://localhost:5000/api/auth/register",
+    "http://space-app-production.up.railway.app/api/auth/register",
     formData
   );
   return response.data;
@@ -43,14 +43,14 @@ export async function register(values: registerValues) {
 
 export async function forgotPassword(email: string) {
   const response = await axios.post(
-    "http://localhost:5000/api/auth/forgot-password",
+    "http://space-app-production.up.railway.app/api/auth/forgot-password",
     { email }
   );
   return response.data;
 }
 
 export async function resetPassword(token: string, password: string) {
-  const endpoint = `http://localhost:5000/api/auth/reset-password/${token}`;
+  const endpoint = `http://space-app-production.up.railway.app/api/auth/reset-password/${token}`;
   const response = await axios.post(endpoint, { password });
   return response.data;
 }

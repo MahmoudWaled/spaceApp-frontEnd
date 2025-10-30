@@ -21,6 +21,12 @@ export async function followUser(userId: string, token: string) {
     return response.data;
   } catch (error: any) {
     console.error("Error following user:", error);
+    if (error.response?.status === 401) {
+      // Token is invalid, redirect to login
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      throw new Error("Authentication failed. Please log in again.");
+    }
     throw error;
   }
 }
@@ -39,6 +45,50 @@ export async function unfollowUser(userId: string, token: string) {
     return response.data;
   } catch (error: any) {
     console.error("Error unfollowing user:", error);
+    if (error.response?.status === 401) {
+      // Token is invalid, redirect to login
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      throw new Error("Authentication failed. Please log in again.");
+    }
+    throw error;
+  }
+}
+
+export async function getFollowers(userId: string, token?: string) {
+  try {
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await axios.get(
+      `http://localhost:5000/api/Follow/followers/${userId}`,
+      { headers }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error getting followers:", error);
+    throw error;
+  }
+}
+
+export async function getFollowing(userId: string, token?: string) {
+  try {
+    const headers: any = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await axios.get(
+      `http://localhost:5000/api/Follow/following/${userId}`,
+      { headers }
+    );
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error getting following:", error);
     throw error;
   }
 }
@@ -58,6 +108,12 @@ export async function getUserProfile(userId: string, token?: string) {
     return response.data;
   } catch (error: any) {
     console.error("Error getting user profile:", error);
+    if (error.response?.status === 401) {
+      // Token is invalid, redirect to login
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      throw new Error("Authentication failed. Please log in again.");
+    }
     throw error;
   }
 }

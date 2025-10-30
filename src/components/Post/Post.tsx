@@ -1,33 +1,23 @@
-import { useState } from "react";
-import {
-  Heart,
-  MessageCircle,
-  Share,
-  MoreHorizontal,
-  Bookmark,
-} from "lucide-react";
+import { useState, useContext } from "react";
+import { Heart, MessageCircle, UserPlus, UserMinus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { cn, isTokenValid, debugToken } from "@/lib/utils";
 import { Comment } from "../comment";
 import { CommentInput } from "../comment-input";
 import { EditDialog } from "../EditDialog";
 import { CustomDropdown } from "../CustomDropdown";
 import { useNavigate } from "react-router-dom";
+import { UserContext } from "@/context/UserContext";
+import { followUser, unfollowUser } from "@/api/userApi";
 
 interface PostUser {
   id: string;
   name: string;
   username: string;
   image?: string;
+  isFollowing?: boolean;
 }
 
 interface PostComment {
@@ -59,6 +49,7 @@ interface PostProps {
   onReport?: () => void;
   onEditComment?: (commentId: string, content: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onFollowToggle?: (userId: string, isFollowing: boolean) => void;
 }
 
 // Add a helper for friendly date formatting
@@ -79,14 +70,12 @@ function formatDate(dateString: string) {
 }
 
 export function Post({
-  id,
   user,
   content,
   images = [],
   timestamp,
   likes,
   comments,
-  shares,
   isLiked,
   isBookmarked,
   currentUserId,
@@ -98,12 +87,14 @@ export function Post({
   onReport,
   onEditComment,
   onDeleteComment,
+  onFollowToggle,
 }: PostProps) {
   const navigate = useNavigate();
   const [showAllComments, setShowAllComments] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [isLiking, setIsLiking] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const currentUser = useContext(UserContext);
 
   const formatContent = (text: string) => {
     return text.split(" ").map((word, index) => {
@@ -150,6 +141,48 @@ export function Post({
   const handleSaveEdit = (newContent: string) => {
     onEdit?.(newContent);
   };
+
+  const handleFollowToggle = async () => {
+    if (!currentUserId || !onFollowToggle) return;
+
+    const token = currentUser?.userToken;
+    if (!token) {
+      alert("Please log in to follow users.");
+      return;
+    }
+
+    // Debug token if needed
+    if (import.meta.env.DEV) {
+      debugToken(token);
+    }
+
+    // Check if token is valid
+    if (!isTokenValid(token)) {
+      alert("Your session has expired. Please log in again.");
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      if (user.isFollowing) {
+        await unfollowUser(user.id, token);
+        onFollowToggle(user.id, false);
+      } else {
+        await followUser(user.id, token);
+        onFollowToggle(user.id, true);
+      }
+    } catch (error: any) {
+      console.error("Error toggling follow:", error);
+      // Show user-friendly error message
+      if (error.message?.includes("Authentication failed")) {
+        alert("Please log in again to continue.");
+      } else {
+        alert("Failed to follow/unfollow user. Please try again.");
+      }
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardContent className="p-6">
@@ -174,7 +207,7 @@ export function Post({
                   : null}
               </AvatarFallback>
             </Avatar>
-            <div>
+            <div className="flex-1">
               <p className="font-semibold text-sm">{user.name}</p>
               <p className="text-muted-foreground text-xs">
                 <span
@@ -186,6 +219,27 @@ export function Post({
                 • {formatDate(timestamp)}
               </p>
             </div>
+            {/* Follow Button - Only show if not own post and user is logged in */}
+            {currentUserId && currentUserId !== user.id && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleFollowToggle}
+                className="flex items-center space-x-1 text-xs"
+              >
+                {user.isFollowing ? (
+                  <>
+                    <UserMinus className="h-3 w-3" />
+                    <span>Unfollow</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-3 w-3" />
+                    <span>Follow</span>
+                  </>
+                )}
+              </Button>
+            )}
           </div>
 
           {/* Post Actions Dropdown */}
@@ -250,7 +304,7 @@ export function Post({
                 </div>
                 {images.length > 1 && (
                   <div className="flex space-x-2 overflow-x-auto pb-2">
-                    {images.map((image, index) => (
+                    {images.map((_, index) => (
                       <button
                         key={index}
                         onClick={() => setCurrentImageIndex(index)}
@@ -317,7 +371,15 @@ export function Post({
         {/* Comments Section */}
         <div className="mt-4 space-y-4">
           {/* Comment Input */}
-          <CommentInput onSubmit={onComment} />
+          <CommentInput
+            onSubmit={async (content: string) => {
+              if (onComment) {
+                onComment(content);
+                return true;
+              }
+              return false;
+            }}
+          />
 
           {/* Comments List */}
           {comments.length > 0 && (

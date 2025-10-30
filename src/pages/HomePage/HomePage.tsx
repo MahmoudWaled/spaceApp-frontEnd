@@ -12,6 +12,7 @@ import {
   updateComment,
   createPost,
 } from "@/api/postApi";
+import { followUser, unfollowUser } from "@/api/userApi";
 import { UserContext } from "@/context/UserContext";
 
 type CommentType = {
@@ -36,25 +37,12 @@ type PostType = {
     username: string;
     name: string;
     profileImage: string;
+    isFollowing?: boolean;
   };
   createdAt: string;
   updatedAt: string;
   comments: CommentType[];
   likes: { username: string; _id: string }[];
-  isLiked: boolean;
-};
-type PostUser = {
-  id: string;
-  name: string;
-  username: string;
-  profileImage?: string;
-};
-type PostComment = {
-  id: string;
-  user: PostUser;
-  content: string;
-  timestamp: string;
-  likes: number;
   isLiked: boolean;
 };
 
@@ -330,6 +318,45 @@ export function HomePage() {
       });
   };
 
+  const handleFollowToggle = async (userId: string, isFollowing: boolean) => {
+    if (!context?.userToken) {
+      console.error("User not authenticated");
+      return;
+    }
+
+    try {
+      if (isFollowing) {
+        await unfollowUser(userId, context.userToken);
+      } else {
+        await followUser(userId, context.userToken);
+      }
+
+      // Update posts to reflect the follow status change
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post.author._id === userId) {
+            return {
+              ...post,
+              author: {
+                ...post.author,
+                isFollowing: !isFollowing,
+              },
+            };
+          }
+          return post;
+        })
+      );
+    } catch (error: any) {
+      console.error("Error toggling follow:", error);
+      // Show user-friendly error message
+      if (error.message?.includes("Authentication failed")) {
+        alert("Please log in again to continue.");
+      } else {
+        alert("Failed to follow/unfollow user. Please try again.");
+      }
+    }
+  };
+
   const handleComment = (postId: string, content: string) => {
     if (!context?.userToken) {
       console.error("User not authenticated");
@@ -472,6 +499,7 @@ export function HomePage() {
                     username: post.author.username,
                     name: post.author.name,
                     image: post.author.profileImage,
+                    isFollowing: post.author.isFollowing || false,
                   }}
                   likes={post.likes.length}
                   isLiked={post.isLiked}
@@ -486,6 +514,7 @@ export function HomePage() {
                   onDeleteComment={(commentId) =>
                     handleDeleteComment(post._id, commentId)
                   }
+                  onFollowToggle={handleFollowToggle}
                 />
               );
             } catch (error) {

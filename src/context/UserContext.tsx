@@ -22,6 +22,7 @@ type UserContextType = {
   isLoading: boolean;
   userData: UserData | null;
   setUserData: Dispatch<SetStateAction<UserData | null>>;
+  logout: () => void;
 };
 type TokenPayload = {
   id: string;
@@ -36,12 +37,37 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [userData, setUserData] = useState<UserData | null>(null);
 
+  const logout = () => {
+    localStorage.removeItem("token");
+    setUserToken(null);
+    setUserData(null);
+  };
+
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const decoded = jwtDecode<TokenPayload>(token);
+      const currentTime = Date.now() / 1000;
+      return decoded.exp < currentTime;
+    } catch {
+      return true;
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       setIsLoading(false);
       return;
     }
+
+    // Check if token is expired
+    if (isTokenExpired(token)) {
+      console.log("Token is expired, logging out");
+      logout();
+      setIsLoading(false);
+      return;
+    }
+
     setUserToken(token);
 
     const decoded = jwtDecode<TokenPayload>(token);
@@ -57,12 +83,28 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
         console.log(res);
       })
-      .catch(() => setUserData(null))
+      .catch((error) => {
+        console.error("Error fetching user profile:", error);
+        // If we get a 401 error, the token is invalid
+        if (error.response?.status === 401) {
+          console.log("Token is invalid, logging out");
+          logout();
+        }
+        setUserData(null);
+      })
       .finally(() => setIsLoading(false));
   }, []);
+
   return (
     <UserContext.Provider
-      value={{ userToken, setUserToken, isLoading, userData, setUserData }}
+      value={{
+        userToken,
+        setUserToken,
+        isLoading,
+        userData,
+        setUserData,
+        logout,
+      }}
     >
       {children}
     </UserContext.Provider>

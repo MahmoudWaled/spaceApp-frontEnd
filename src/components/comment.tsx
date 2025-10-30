@@ -1,16 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Heart, MoreHorizontal } from "lucide-react";
+import { Heart } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { EditDialog } from "./EditDialog";
 import { CustomDropdown } from "./CustomDropdown";

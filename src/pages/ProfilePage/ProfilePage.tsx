@@ -3,11 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Edit,
   Camera,
-  Trash2,
   Users,
   UserPlus,
   UserMinus,
-  Settings,
   ArrowLeft,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Post } from "@/components/Post/Post";
 import { CustomDropdown } from "@/components/CustomDropdown";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { FollowersFollowing } from "@/components/FollowersFollowing";
 import { UserContext } from "@/context/UserContext";
 import {
   followUser,
@@ -27,9 +26,15 @@ import {
   updateProfile,
   deleteProfileImage,
   updateFullProfile,
-  updateProfileImage,
 } from "@/api/userApi";
-import { getPosts, addComment } from "@/api/postApi";
+import {
+  addComment,
+  deletePost,
+  updatePost,
+  deleteComment,
+  updateComment,
+  toggleLikePost,
+} from "@/api/postApi";
 import Cropper from "react-easy-crop";
 import {
   Dialog,
@@ -39,6 +44,15 @@ import {
 } from "@/components/ui/dialog";
 import * as Yup from "yup";
 import { useFormik } from "formik";
+
+type EditProfileFormValues = {
+  username: string;
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  profileImage: File | null;
+};
 
 interface UserProfile {
   _id: string;
@@ -61,6 +75,7 @@ interface UserPost {
     username: string;
     name: string;
     profileImage: string;
+    isFollowing?: boolean;
   };
   createdAt: string;
   updatedAt: string;
@@ -69,12 +84,7 @@ interface UserPost {
   isLiked: boolean;
 }
 
-function getCroppedImg(
-  imageSrc: string,
-  crop: any,
-  zoom: number,
-  aspect: number
-): Promise<Blob> {
+function getCroppedImg(imageSrc: string, crop: any): Promise<Blob> {
   // Helper to crop the image and return a Blob
   return new Promise((resolve, reject) => {
     const image = new window.Image();
@@ -156,9 +166,12 @@ export function ProfilePage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
+  // Followers/Following modal
+  const [showFollowersFollowing, setShowFollowersFollowing] = useState(false);
+
   // Add state for edit profile dialog
   const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
-  const [editProfileForm, setEditProfileForm] = useState({
+  const [, setEditProfileForm] = useState({
     name: profile?.name || "",
     username: profile?.username || "",
     email: profile?.email || "",
@@ -266,6 +279,45 @@ export function ProfilePage() {
             : null
         );
       }
+    } catch (error: any) {
+      console.error("Error toggling follow:", error);
+      // Show user-friendly error message
+      if (error.message?.includes("Authentication failed")) {
+        alert("Please log in again to continue.");
+      } else {
+        alert("Failed to follow/unfollow user. Please try again.");
+      }
+    }
+  };
+
+  const handlePostFollowToggle = async (
+    userId: string,
+    isFollowing: boolean
+  ) => {
+    if (!userToken) return;
+
+    try {
+      if (isFollowing) {
+        await unfollowUser(userId, userToken);
+      } else {
+        await followUser(userId, userToken);
+      }
+
+      // Update posts to reflect the follow status change
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => {
+          if (post.author._id === userId) {
+            return {
+              ...post,
+              author: {
+                ...post.author,
+                isFollowing: !isFollowing,
+              },
+            };
+          }
+          return post;
+        })
+      );
     } catch (error) {
       console.error("Error toggling follow:", error);
     }
@@ -284,7 +336,7 @@ export function ProfilePage() {
     }
   };
 
-  const onCropComplete = (croppedArea: any, croppedAreaPixels: any) => {
+  const onCropComplete = (croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
   };
 
@@ -293,12 +345,7 @@ export function ProfilePage() {
     if (!imagePreview || !croppedAreaPixels || !selectedImage) return;
     setIsUpdating(true);
     try {
-      const croppedBlob = await getCroppedImg(
-        imagePreview,
-        croppedAreaPixels,
-        zoom,
-        1
-      );
+      const croppedBlob = await getCroppedImg(imagePreview, croppedAreaPixels);
       const croppedFile = new File(
         [croppedBlob],
         selectedImage?.name || "cropped.jpg",
@@ -313,11 +360,7 @@ export function ProfilePage() {
       if (profile.bio) formData.append("bio", profile.bio);
       formData.append("role", "user");
       formData.append("profileImage", croppedFile);
-      const updatedProfile = await updateFullProfile(
-        userId,
-        formData,
-        userToken
-      );
+      const updatedProfile = await updateFullProfile(userId, formData);
       setProfile(updatedProfile);
       setSelectedImage(null);
       setImagePreview(null);
@@ -368,10 +411,6 @@ export function ProfilePage() {
     }
   };
 
-  const handleLike = async (postId: string) => {
-    // Implement like functionality similar to HomePage
-  };
-
   const handleComment = async (postId: string, content: string) => {
     if (!userToken) return;
     try {
@@ -383,24 +422,58 @@ export function ProfilePage() {
     }
   };
 
+  const handleLike = async (postId: string) => {
+    if (!userToken) return;
+    try {
+      await toggleLikePost(postId, userToken);
+      await loadUserPosts(); // reload posts to update like status
+    } catch (error) {
+      console.error("Failed to like/unlike post:", error);
+    }
+  };
+
   const handleEditPost = async (postId: string, content: string) => {
-    // Implement edit post functionality
+    if (!userToken) return;
+    try {
+      await updatePost(postId, content, userToken);
+      await loadUserPosts(); // reload posts to show updated content
+    } catch (error) {
+      console.error("Failed to edit post:", error);
+    }
   };
 
   const handleDeletePost = async (postId: string) => {
-    // Implement delete post functionality
+    if (!userToken) return;
+    try {
+      await deletePost(postId, userToken);
+      await loadUserPosts(); // reload posts to remove deleted post
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+    }
   };
 
   const handleEditComment = async (
-    postId: string,
+    _postId: string,
     commentId: string,
     content: string
   ) => {
-    // Implement edit comment functionality
+    if (!userToken) return;
+    try {
+      await updateComment(commentId, content, userToken);
+      await loadUserPosts(); // reload posts to show updated comment
+    } catch (error) {
+      console.error("Failed to edit comment:", error);
+    }
   };
 
-  const handleDeleteComment = async (postId: string, commentId: string) => {
-    // Implement delete comment functionality
+  const handleDeleteComment = async (_postId: string, commentId: string) => {
+    if (!userToken) return;
+    try {
+      await deleteComment(commentId, userToken);
+      await loadUserPosts(); // reload posts to remove deleted comment
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+    }
   };
 
   // Edit Profile Button handler
@@ -418,7 +491,7 @@ export function ProfilePage() {
   };
 
   // Fix Formik integration: handleEditProfileSubmit should accept values, not event
-  const handleEditProfileSubmit = async (values: typeof formik.values) => {
+  const handleEditProfileSubmit = async (values: EditProfileFormValues) => {
     setEditProfileErrors({});
     const formData = new FormData();
     const { name, username, email, password, confirmPassword, profileImage } =
@@ -431,7 +504,11 @@ export function ProfilePage() {
     if (profileImage) formData.append("profileImage", profileImage);
     if (!userId || typeof userId !== "string") return;
     try {
-      const updated = await updateFullProfile(userId, formData, userToken);
+      const updated = await updateFullProfile(
+        userId,
+        formData,
+        userToken || undefined
+      );
       setProfile(updated);
       if (updated.profileImage) {
         setImagePreview(
@@ -482,13 +559,13 @@ export function ProfilePage() {
       "password must be with minimum 8 characters, at least one upper case English letter, one lower case English letter, one number and one special character"
     ),
     confirmPassword: Yup.string().oneOf(
-      [Yup.ref("password"), null],
+      [Yup.ref("password")],
       "passwords must match"
     ),
     profileImage: Yup.mixed().nullable(),
   });
 
-  const formik = useFormik({
+  const formik = useFormik<EditProfileFormValues>({
     initialValues: {
       username: profile?.username || "",
       name: profile?.name || "",
@@ -606,8 +683,8 @@ export function ProfilePage() {
                 <AvatarImage
                   src={
                     imagePreview ||
-                    (profile.profileImage
-                      ? `http://localhost:5000/Uploads/${profile.profileImage}`
+                    (profile.avatar
+                      ? `http://localhost:5000/Uploads/${profile.avatar}`
                       : "/placeholder-avatar.jpg")
                   }
                   alt={profile.name}
@@ -739,13 +816,19 @@ export function ProfilePage() {
                   )}
 
                   <div className="flex items-center space-x-6 mb-4">
-                    <div className="flex items-center space-x-2">
+                    <div
+                      className="flex items-center space-x-2 cursor-pointer hover:text-red-500 transition-colors"
+                      onClick={() => setShowFollowersFollowing(true)}
+                    >
                       <Users className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-600">
                         {profile.followers.length} followers
                       </span>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div
+                      className="flex items-center space-x-2 cursor-pointer hover:text-red-500 transition-colors"
+                      onClick={() => setShowFollowersFollowing(true)}
+                    >
                       <UserPlus className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-600">
                         {profile.following.length} following
@@ -833,6 +916,7 @@ export function ProfilePage() {
                     username: post.author.username || "",
                     name: post.author.name || "",
                     image: post.author.profileImage || "",
+                    isFollowing: post.author.isFollowing || false,
                   }}
                   likes={Array.isArray(post.likes) ? post.likes.length : 0}
                   isLiked={post.isLiked || false}
@@ -847,6 +931,7 @@ export function ProfilePage() {
                   onDeleteComment={(commentId) =>
                     handleDeleteComment(post._id, commentId)
                   }
+                  onFollowToggle={handlePostFollowToggle}
                 />
               );
             })
@@ -1012,6 +1097,13 @@ export function ProfilePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Followers/Following Modal */}
+      <FollowersFollowing
+        userId={userId || ""}
+        isOpen={showFollowersFollowing}
+        onClose={() => setShowFollowersFollowing(false)}
+      />
     </div>
   );
 }
