@@ -55,6 +55,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (!token) {
       setIsLoading(false);
       return;
@@ -62,7 +63,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
     // Check if token is expired
     if (isTokenExpired(token)) {
-      console.log("Token is expired, logging out");
       logout();
       setIsLoading(false);
       return;
@@ -71,6 +71,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     setUserToken(token);
 
     const decoded = jwtDecode<TokenPayload>(token);
+
     getProfile(decoded.id)
       .then((res) => {
         setUserData({
@@ -80,19 +81,16 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           id: decoded.id,
           avatar: res.profileImage || "",
         });
-
-        console.log(res);
       })
       .catch((error) => {
-        console.error("Error fetching user profile:", error);
-        // If we get a 401 error, the token is invalid
-        if (error.response?.status === 401) {
-          console.log("Token is invalid, logging out");
+        if (error.response?.status === 401 || error.response?.status === 404) {
           logout();
         }
         setUserData(null);
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, []);
 
   return (

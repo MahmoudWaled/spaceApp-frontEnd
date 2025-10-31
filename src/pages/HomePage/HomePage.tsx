@@ -11,8 +11,8 @@ import {
   deleteComment,
   updateComment,
   createPost,
+  toggleLikeComment,
 } from "@/api/postApi";
-import { followUser, unfollowUser } from "@/api/userApi";
 import { UserContext } from "@/context/UserContext";
 
 type CommentType = {
@@ -62,15 +62,34 @@ export function HomePage() {
   }>({ isOpen: false, postId: null, commentId: null });
 
   // Helper function to fetch posts with like status
-  const fetchPostsWithLikeStatus = () => {
-    const response = getPosts();
+  const fetchPostsWithLikeStatus = async () => {
+    const token = context?.userToken || undefined;
+
+    // Use localStorage for follow status since backend /user/{id} doesn't return following list
+    const followingData = localStorage.getItem("followingUsers");
+    const actualFollowing: string[] = followingData
+      ? JSON.parse(followingData)
+      : [];
+
+    const response = getPosts(token);
     response().then((data) => {
       const postsWithLikeStatus = data.map((post: any) => {
         const userId = userData?.id;
         const isLiked = userId
           ? post.likes.some((like: any) => like._id === userId)
           : false;
-        return { ...post, isLiked };
+
+        // Use localStorage following list
+        const isFollowing = actualFollowing.includes(post.author._id);
+
+        return {
+          ...post,
+          isLiked,
+          author: {
+            ...post.author,
+            isFollowing,
+          },
+        };
       });
       setPosts(postsWithLikeStatus);
     });
@@ -80,13 +99,21 @@ export function HomePage() {
     fetchPostsWithLikeStatus();
   }, [userData?.id]);
 
+  // Refresh posts when window regains focus (e.g., coming back from profile page)
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchPostsWithLikeStatus();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [userData?.id]);
+
   function handleLike(postId: string) {
     if (!context?.userToken) {
-      console.error("User not authenticated");
       return;
     }
 
-    // Optimistically update the UI first
     setPosts((prevPosts) =>
       prevPosts.map((post) => {
         if (post._id !== postId) return post;
@@ -109,14 +136,9 @@ export function HomePage() {
       })
     );
 
-    // Then make the API call
     toggleLikePost(postId, context.userToken)
-      .then(() => {
-        // API call successful, no need to update state again
-      })
-      .catch((err) => {
-        console.error("Error toggling like:", err);
-        // Revert the optimistic update on error
+      .then(() => {})
+      .catch(() => {
         setPosts((prevPosts) =>
           prevPosts.map((post) => {
             if (post._id !== postId) return post;
@@ -136,20 +158,17 @@ export function HomePage() {
             };
           })
         );
-        // Optionally show a user-friendly error message
       });
   }
 
   const handleCreatePost = async (content: string, image?: File) => {
     if (!context?.userToken) {
-      console.error("User not authenticated");
       return;
     }
 
     try {
       const newPost = await createPost(content, image, context.userToken);
 
-      // Ensure the new post has the correct structure
       const formattedPost: PostType = {
         _id: newPost._id,
         content: newPost.content,
@@ -164,19 +183,14 @@ export function HomePage() {
         updatedAt: newPost.updatedAt || newPost.createdAt,
         comments: newPost.comments || [],
         likes: newPost.likes || [],
-        isLiked: false, // New posts are not liked by the author
+        isLiked: false,
       };
 
-      // Add the new post to the beginning of the list
       setPosts((prevPosts) => {
         const updatedPosts = [formattedPost, ...prevPosts];
         return updatedPosts;
       });
     } catch (err: any) {
-      console.error("Error creating post:", err);
-      console.error("Error details:", err.response?.data || err.message);
-
-      // If there's an error, refresh the posts to ensure consistency
       fetchPostsWithLikeStatus();
 
       alert("Failed to create post. Please try again.");
@@ -192,29 +206,21 @@ export function HomePage() {
 
     const postId = deletePostDialog.postId;
 
-    // Optimistically remove the post from UI
     setPosts((prevPosts) => prevPosts.filter((post) => post._id !== postId));
 
-    // Make the API call
     deletePost(postId, context.userToken)
-      .then(() => {
-        console.log("Post deleted successfully");
-      })
-      .catch((err) => {
-        console.error("Error deleting post:", err);
+      .then(() => {})
+      .catch(() => {
         alert("Failed to delete post. Please try again.");
-        // Revert the optimistic update on error
         fetchPostsWithLikeStatus();
       });
   };
 
   const handleEditPost = (postId: string, newContent: string) => {
     if (!context?.userToken) {
-      console.error("User not authenticated");
       return;
     }
 
-    // Optimistically update the post in UI
     setPosts((prevPosts) =>
       prevPosts.map((post) => {
         if (post._id !== postId) return post;
@@ -225,15 +231,10 @@ export function HomePage() {
       })
     );
 
-    // Make the API call
     updatePost(postId, newContent, context.userToken)
-      .then((response) => {
-        console.log("Post updated successfully:", response);
-      })
-      .catch((err) => {
-        console.error("Error updating post:", err);
+      .then(() => {})
+      .catch(() => {
         alert("Failed to update post. Please try again.");
-        // Revert the optimistic update on error
         fetchPostsWithLikeStatus();
       });
   };
@@ -252,7 +253,6 @@ export function HomePage() {
 
     const { postId, commentId } = deleteCommentDialog;
 
-    // Optimistically remove the comment from UI
     setPosts((prevPosts) =>
       prevPosts.map((post) => {
         if (post._id !== postId) return post;
@@ -265,15 +265,10 @@ export function HomePage() {
       })
     );
 
-    // Make the API call
     deleteComment(commentId, context.userToken)
-      .then(() => {
-        console.log("Comment deleted successfully");
-      })
-      .catch((err) => {
-        console.error("Error deleting comment:", err);
+      .then(() => {})
+      .catch(() => {
         alert("Failed to delete comment. Please try again.");
-        // Revert the optimistic update on error
         fetchPostsWithLikeStatus();
       });
   };
@@ -284,11 +279,9 @@ export function HomePage() {
     newContent: string
   ) => {
     if (!context?.userToken) {
-      console.error("User not authenticated");
       return;
     }
 
-    // Optimistically update the comment in UI
     setPosts((prevPosts) =>
       prevPosts.map((post) => {
         if (post._id !== postId) return post;
@@ -305,67 +298,124 @@ export function HomePage() {
       })
     );
 
-    // Make the API call
     updateComment(commentId, newContent, context.userToken)
-      .then((response) => {
-        console.log("Comment updated successfully:", response);
-      })
-      .catch((err) => {
-        console.error("Error updating comment:", err);
+      .then(() => {})
+      .catch(() => {
         alert("Failed to update comment. Please try again.");
-        // Revert the optimistic update on error
         fetchPostsWithLikeStatus();
       });
   };
 
-  const handleFollowToggle = async (userId: string, isFollowing: boolean) => {
+  const handleFollowToggle = async (
+    userId: string,
+    newIsFollowing: boolean
+  ) => {
     if (!context?.userToken) {
-      console.error("User not authenticated");
       return;
     }
 
-    try {
-      if (isFollowing) {
-        await unfollowUser(userId, context.userToken);
-      } else {
-        await followUser(userId, context.userToken);
-      }
+    const followingData = localStorage.getItem("followingUsers");
+    const followingUsers = followingData ? JSON.parse(followingData) : [];
 
-      // Update posts to reflect the follow status change
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => {
-          if (post.author._id === userId) {
+    if (newIsFollowing) {
+      if (!followingUsers.includes(userId)) {
+        followingUsers.push(userId);
+        localStorage.setItem("followingUsers", JSON.stringify(followingUsers));
+      }
+    } else {
+      const updated = followingUsers.filter((id: string) => id !== userId);
+      localStorage.setItem("followingUsers", JSON.stringify(updated));
+    }
+
+    setPosts((prevPosts) =>
+      prevPosts.map((post) => {
+        if (post.author._id === userId) {
+          return {
+            ...post,
+            author: {
+              ...post.author,
+              isFollowing: newIsFollowing,
+            },
+          };
+        }
+        return post;
+      })
+    );
+  };
+
+  const handleLikeComment = (postId: string, commentId: string) => {
+    if (!context?.userToken) {
+      return;
+    }
+
+    setPosts((prevPosts) =>
+      prevPosts.map((post) => {
+        if (post._id !== postId) return post;
+
+        return {
+          ...post,
+          comments: post.comments.map((comment) => {
+            if (comment._id !== commentId) return comment;
+
+            const userId = context?.userData?.id;
+            const currentLikes = Array.isArray(comment.likes)
+              ? comment.likes
+              : [];
+            const alreadyLiked = currentLikes.includes(userId!);
+
+            const updatedLikes = alreadyLiked
+              ? currentLikes.filter((id) => id !== userId)
+              : [...currentLikes, userId!];
+
+            return {
+              ...comment,
+              likes: updatedLikes,
+            };
+          }),
+        };
+      })
+    );
+
+    toggleLikeComment(commentId, context.userToken)
+      .then(() => {})
+      .catch(() => {
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => {
+            if (post._id !== postId) return post;
+
             return {
               ...post,
-              author: {
-                ...post.author,
-                isFollowing: !isFollowing,
-              },
+              comments: post.comments.map((comment) => {
+                if (comment._id !== commentId) return comment;
+
+                const userId = context?.userData?.id;
+                const currentLikes = Array.isArray(comment.likes)
+                  ? comment.likes
+                  : [];
+                const alreadyLiked = currentLikes.includes(userId!);
+
+                const updatedLikes = alreadyLiked
+                  ? currentLikes.filter((id) => id !== userId)
+                  : [...currentLikes, userId!];
+
+                return {
+                  ...comment,
+                  likes: updatedLikes,
+                };
+              }),
             };
-          }
-          return post;
-        })
-      );
-    } catch (error: any) {
-      console.error("Error toggling follow:", error);
-      // Show user-friendly error message
-      if (error.message?.includes("Authentication failed")) {
-        alert("Please log in again to continue.");
-      } else {
-        alert("Failed to follow/unfollow user. Please try again.");
-      }
-    }
+          })
+        );
+      });
   };
 
   const handleComment = (postId: string, content: string) => {
     if (!context?.userToken) {
-      console.error("User not authenticated");
       return;
     }
 
     const tempId = `temp-${Date.now()}`;
 
-    // Optimistically add the comment to the UI
     const newComment: CommentType = {
       _id: tempId,
       text: content,
@@ -379,26 +429,20 @@ export function HomePage() {
       likes: [],
     };
 
-    // Add the comment optimistically at the top
     setPosts((prevPosts) => {
       const updatedPosts = prevPosts.map((post) => {
         if (post._id !== postId) return post;
         const updatedPost = {
           ...post,
-          comments: [newComment, ...post.comments], // Add to top
+          comments: [newComment, ...post.comments],
         };
         return updatedPost;
       });
       return updatedPosts;
     });
 
-    // Make the API call
     addComment(postId, content, context.userToken!)
       .then((response) => {
-        console.log("Comment added successfully:", response);
-        console.log("Response data:", response);
-
-        // If the API returns the actual comment, replace the temporary one
         if (response && response._id) {
           setPosts((prevPosts) =>
             prevPosts.map((post) => {
@@ -436,15 +480,9 @@ export function HomePage() {
           );
         }
       })
-      .catch((err) => {
-        console.error("Error adding comment:", err);
-        console.error("Error details:", err.response?.data || err.message);
-        console.error("Error status:", err.response?.status);
-
-        // Show user-friendly error message
+      .catch(() => {
         alert("Failed to save comment. Please try again.");
 
-        // Remove the optimistic comment on any error
         setPosts((prevPosts) =>
           prevPosts.map((post) => {
             if (post._id !== postId) return post;
@@ -514,11 +552,13 @@ export function HomePage() {
                   onDeleteComment={(commentId) =>
                     handleDeleteComment(post._id, commentId)
                   }
+                  onLikeComment={(commentId) =>
+                    handleLikeComment(post._id, commentId)
+                  }
                   onFollowToggle={handleFollowToggle}
                 />
               );
             } catch (error) {
-              console.error("Error rendering post:", post._id, error);
               return (
                 <div
                   key={post._id}

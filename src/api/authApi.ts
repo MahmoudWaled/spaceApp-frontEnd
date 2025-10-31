@@ -21,18 +21,13 @@ type registerValues = {
 };
 
 export async function register(values: registerValues) {
-  const formData = new FormData();
-
-  formData.append("username", values.username);
-  formData.append("email", values.email);
-  formData.append("password", values.password);
-  formData.append("confirmPassword", values.confirmPassword);
-  formData.append("name", values.name);
-  if (values.profileImage) {
-    formData.append("profileImage", values.profileImage);
-  }
-
-  const response = await axios.post(`${API_BASE_URL}/auth/register`, formData);
+  const response = await axios.post(`${API_BASE_URL}/auth/register`, {
+    name: values.name,
+    username: values.username,
+    email: values.email,
+    password: values.password,
+    confirmPassword: values.confirmPassword,
+  });
   return response.data;
 }
 

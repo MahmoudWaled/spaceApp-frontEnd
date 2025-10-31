@@ -25,7 +25,7 @@ interface CommentProps {
     isLiked: boolean;
   };
   currentUserId?: string;
-  onLike?: () => void;
+  onLike?: (commentId: string) => void;
   onReply?: () => void;
   onEdit?: (content: string) => void;
   onDelete?: () => void;
@@ -41,14 +41,10 @@ export function Comment({
   onDelete,
   onReport,
 }: CommentProps) {
-  const [isLiked, setIsLiked] = useState(comment.isLiked);
-  const [likes, setLikes] = useState(comment.likes);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikes(isLiked ? likes - 1 : likes + 1);
-    onLike?.();
+    onLike?.(comment.id);
   };
 
   const formatCount = (count: number) => {
@@ -71,7 +67,12 @@ export function Comment({
         <AvatarImage
           src={
             comment.user.image
-              ? `http://localhost:5000/Uploads/${comment.user.image}`
+              ? comment.user.image.startsWith("http") ||
+                comment.user.image.startsWith("/")
+                ? comment.user.image
+                : comment.user.image.startsWith("avatar")
+                ? `/seed-images/${comment.user.image}`
+                : `http://localhost:5000/Uploads/${comment.user.image}`
               : "/placeholder.svg"
           }
           alt={comment.user.name}
@@ -107,12 +108,14 @@ export function Comment({
               onClick={handleLike}
               className={cn(
                 "flex items-center space-x-1 h-6 px-2 hover:bg-red-50 dark:hover:bg-red-950/20 flex-shrink-0",
-                isLiked && "text-red-500"
+                comment.isLiked && "text-red-500"
               )}
             >
-              <Heart className={cn("h-3 w-3", isLiked && "fill-current")} />
-              {likes > 0 && (
-                <span className="text-xs">{formatCount(likes)}</span>
+              <Heart
+                className={cn("h-3 w-3", comment.isLiked && "fill-current")}
+              />
+              {comment.likes > 0 && (
+                <span className="text-xs">{formatCount(comment.likes)}</span>
               )}
             </Button>
 

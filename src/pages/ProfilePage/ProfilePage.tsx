@@ -84,36 +84,47 @@ interface UserPost {
   isLiked: boolean;
 }
 
-function getCroppedImg(imageSrc: string, crop: any): Promise<Blob> {
+function getCroppedImg(
+  imageSrc: string,
+  croppedAreaPixels: any
+): Promise<Blob> {
   // Helper to crop the image and return a Blob
   return new Promise((resolve, reject) => {
     const image = new window.Image();
     image.src = imageSrc;
     image.onload = () => {
       const canvas = document.createElement("canvas");
-      const scaleX = image.naturalWidth / image.width;
-      const scaleY = image.naturalHeight / image.height;
-      canvas.width = crop.width;
-      canvas.height = crop.height;
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject();
+
+      // Set canvas size to the cropped area size
+      canvas.width = croppedAreaPixels.width;
+      canvas.height = croppedAreaPixels.height;
+
+      // Draw the cropped image
       ctx.drawImage(
         image,
-        crop.x * scaleX,
-        crop.y * scaleY,
-        crop.width * scaleX,
-        crop.height * scaleY,
+        croppedAreaPixels.x,
+        croppedAreaPixels.y,
+        croppedAreaPixels.width,
+        croppedAreaPixels.height,
         0,
         0,
-        crop.width,
-        crop.height
+        croppedAreaPixels.width,
+        croppedAreaPixels.height
       );
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject();
-      }, "image/jpeg");
+
+      // Convert canvas to blob
+      canvas.toBlob(
+        (blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create blob"));
+        },
+        "image/jpeg",
+        0.95 // Quality (0-1)
+      );
     };
-    image.onerror = reject;
+    image.onerror = () => reject(new Error("Failed to load image"));
   });
 }
 
@@ -125,7 +136,6 @@ export function ProfilePage() {
 
   // Early return if context is not available
   if (!context) {
-    console.error("UserContext is not available");
     return (
       <div className="container mx-auto py-8 max-w-4xl">
         <div className="text-center">
@@ -145,6 +155,7 @@ export function ProfilePage() {
   const [posts, setPosts] = useState<UserPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -191,7 +202,7 @@ export function ProfilePage() {
       loadProfile();
       loadUserPosts();
     }
-  }, [userId, userToken]);
+  }, [userId]);
 
   const loadProfile = async () => {
     try {
@@ -208,8 +219,23 @@ export function ProfilePage() {
         throw new Error("No profile data received");
       }
 
-      setProfile(profileData);
-      setIsFollowing(profileData.isFollowing || false);
+      // Convert profileImage to avatar if needed
+      const normalizedProfile = {
+        ...profileData,
+        avatar: profileData.profileImage || profileData.avatar,
+      };
+
+      // Check if current user is in the followers list
+      // Handle both string IDs and objects with _id
+      const isCurrentlyFollowing =
+        profileData.followers?.some((follower: any) => {
+          const followerId =
+            typeof follower === "string" ? follower : follower._id;
+          return followerId === userData?.id;
+        }) || false;
+
+      setProfile(normalizedProfile);
+      setIsFollowing(isCurrentlyFollowing);
       setIsOwnProfile(userData?.id === userId);
 
       // Set edit form with current values
@@ -219,7 +245,6 @@ export function ProfilePage() {
         bio: profileData.bio || "",
       });
     } catch (error: any) {
-      console.error("Error loading profile:", error);
       setError(
         error.response?.data?.message ||
           error.message ||
@@ -235,92 +260,167 @@ export function ProfilePage() {
       const postsData = await getUserPosts(userId!, userToken || undefined);
 
       if (!Array.isArray(postsData)) {
-        console.error("Posts data is not an array:", postsData);
         setPosts([]);
         return;
       }
 
-      // Calculate isLiked for each post
+      // Get following list from localStorage
+      const followingData = localStorage.getItem("followingUsers");
+      const followingUsers = followingData ? JSON.parse(followingData) : [];
+
+      // Calculate isLiked and isFollowing for each post
       const postsWithLikeStatus = postsData.map((post: any) => {
         const isLiked = userData?.id
           ? post.likes.some((like: any) => like._id === userData.id)
           : false;
-        return { ...post, isLiked };
+
+        const isFollowing = followingUsers.includes(post.author._id);
+
+        return {
+          ...post,
+          isLiked,
+          author: {
+            ...post.author,
+            isFollowing,
+          },
+        };
       });
 
       setPosts(postsWithLikeStatus);
     } catch (error) {
-      console.error("Error loading user posts:", error);
       setPosts([]);
     }
   };
 
   const handleFollowToggle = async () => {
-    if (!userToken || !profile) return;
+    if (!userToken || !profile || isFollowLoading) return;
 
+    setIsFollowLoading(true);
     try {
       if (isFollowing) {
         await unfollowUser(profile._id, userToken);
         setIsFollowing(false);
+
+        // Update localStorage
+        const followingData = localStorage.getItem("followingUsers");
+        const followingUsers = followingData ? JSON.parse(followingData) : [];
+        const updated = followingUsers.filter(
+          (id: string) => id !== profile._id
+        );
+        localStorage.setItem("followingUsers", JSON.stringify(updated));
+
         setProfile((prev) =>
           prev
             ? {
                 ...prev,
-                followers: prev.followers.filter((id) => id !== userData?.id),
+                followers: prev.followers.filter((f: any) => {
+                  const fId = typeof f === "string" ? f : f._id;
+                  return fId !== userData?.id;
+                }),
               }
             : null
+        );
+
+        // Update posts to reflect follow status change
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => {
+            if (post.author._id === profile._id) {
+              return {
+                ...post,
+                author: {
+                  ...post.author,
+                  isFollowing: false,
+                },
+              };
+            }
+            return post;
+          })
         );
       } else {
         await followUser(profile._id, userToken);
         setIsFollowing(true);
+
+        // Update localStorage
+        const followingData = localStorage.getItem("followingUsers");
+        const followingUsers = followingData ? JSON.parse(followingData) : [];
+        if (!followingUsers.includes(profile._id)) {
+          followingUsers.push(profile._id);
+          localStorage.setItem(
+            "followingUsers",
+            JSON.stringify(followingUsers)
+          );
+        }
+
         setProfile((prev) =>
           prev
             ? { ...prev, followers: [...prev.followers, userData?.id!] }
             : null
         );
+
+        // Update posts to reflect follow status change
+        setPosts((prevPosts) =>
+          prevPosts.map((post) => {
+            if (post.author._id === profile._id) {
+              return {
+                ...post,
+                author: {
+                  ...post.author,
+                  isFollowing: true,
+                },
+              };
+            }
+            return post;
+          })
+        );
       }
     } catch (error: any) {
-      console.error("Error toggling follow:", error);
-      // Show user-friendly error message
       if (error.message?.includes("Authentication failed")) {
         alert("Please log in again to continue.");
       } else {
         alert("Failed to follow/unfollow user. Please try again.");
       }
+    } finally {
+      setIsFollowLoading(false);
     }
   };
 
   const handlePostFollowToggle = async (
     userId: string,
-    isFollowing: boolean
+    newIsFollowing: boolean
   ) => {
     if (!userToken) return;
 
-    try {
-      if (isFollowing) {
-        await unfollowUser(userId, userToken);
-      } else {
-        await followUser(userId, userToken);
-      }
+    // Update localStorage based on new state
+    const followingData = localStorage.getItem("followingUsers");
+    const followingUsers = followingData ? JSON.parse(followingData) : [];
 
-      // Update posts to reflect the follow status change
-      setPosts((prevPosts) =>
-        prevPosts.map((post) => {
-          if (post.author._id === userId) {
-            return {
-              ...post,
-              author: {
-                ...post.author,
-                isFollowing: !isFollowing,
-              },
-            };
-          }
-          return post;
-        })
-      );
-    } catch (error) {
-      console.error("Error toggling follow:", error);
+    if (newIsFollowing) {
+      // Add to following list
+      if (!followingUsers.includes(userId)) {
+        followingUsers.push(userId);
+        localStorage.setItem("followingUsers", JSON.stringify(followingUsers));
+      }
+    } else {
+      // Remove from following list
+      const updated = followingUsers.filter((id: string) => id !== userId);
+      localStorage.setItem("followingUsers", JSON.stringify(updated));
     }
+
+    // Update posts UI
+    setPosts((prevPosts) =>
+      prevPosts.map((post) => {
+        if (post.author._id === userId) {
+          return {
+            ...post,
+            author: {
+              ...post.author,
+              isFollowing: newIsFollowing,
+            },
+          };
+        }
+        return post;
+      })
+    );
   };
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -336,13 +436,14 @@ export function ProfilePage() {
     }
   };
 
-  const onCropComplete = (croppedAreaPixels: any) => {
+  const onCropComplete = (_croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
   };
 
   // Profile image update handler (crop confirm)
   const handleCropConfirm = async () => {
     if (!imagePreview || !croppedAreaPixels || !selectedImage) return;
+    if (!userToken) return;
     setIsUpdating(true);
     try {
       const croppedBlob = await getCroppedImg(imagePreview, croppedAreaPixels);
@@ -360,13 +461,35 @@ export function ProfilePage() {
       if (profile.bio) formData.append("bio", profile.bio);
       formData.append("role", "user");
       formData.append("profileImage", croppedFile);
-      const updatedProfile = await updateFullProfile(userId, formData);
-      setProfile(updatedProfile);
+      const updatedProfile = await updateFullProfile(
+        userId,
+        formData,
+        userToken
+      );
+
+      const newAvatar = updatedProfile.profileImage || updatedProfile.avatar;
+      const avatarWithTimestamp = newAvatar
+        ? `${newAvatar}?t=${Date.now()}`
+        : newAvatar;
+
+      setProfile({
+        ...profile,
+        ...updatedProfile,
+        avatar: avatarWithTimestamp,
+      });
+
+      // Update UserContext if this is the logged-in user's profile
+      if (context?.setUserData && userData?.id === userId) {
+        context.setUserData({
+          ...userData,
+          avatar: avatarWithTimestamp,
+        });
+      }
+
       setSelectedImage(null);
       setImagePreview(null);
       setShowCropDialog(false);
     } catch (e) {
-      // handle error
     } finally {
       setIsUpdating(false);
     }
@@ -393,7 +516,6 @@ export function ProfilePage() {
         setIsEditing(false);
       }
     } catch (error) {
-      console.error("Error updating profile:", error);
     } finally {
       setIsUpdating(false);
     }
@@ -406,50 +528,39 @@ export function ProfilePage() {
       await deleteProfileImage(userToken);
       setProfile((prev) => (prev ? { ...prev, avatar: undefined } : null));
       setDeleteImageDialog(false);
-    } catch (error) {
-      console.error("Error deleting profile image:", error);
-    }
+    } catch (error) {}
   };
 
   const handleComment = async (postId: string, content: string) => {
     if (!userToken) return;
     try {
       await addComment(postId, content, userToken);
-      await loadUserPosts(); // reload posts to show new comment
-    } catch (error) {
-      console.error("Failed to add comment:", error);
-      // Optionally, show a user-facing error message here
-    }
+      await loadUserPosts();
+    } catch (error) {}
   };
 
   const handleLike = async (postId: string) => {
     if (!userToken) return;
     try {
       await toggleLikePost(postId, userToken);
-      await loadUserPosts(); // reload posts to update like status
-    } catch (error) {
-      console.error("Failed to like/unlike post:", error);
-    }
+      await loadUserPosts();
+    } catch (error) {}
   };
 
   const handleEditPost = async (postId: string, content: string) => {
     if (!userToken) return;
     try {
       await updatePost(postId, content, userToken);
-      await loadUserPosts(); // reload posts to show updated content
-    } catch (error) {
-      console.error("Failed to edit post:", error);
-    }
+      await loadUserPosts();
+    } catch (error) {}
   };
 
   const handleDeletePost = async (postId: string) => {
     if (!userToken) return;
     try {
       await deletePost(postId, userToken);
-      await loadUserPosts(); // reload posts to remove deleted post
-    } catch (error) {
-      console.error("Failed to delete post:", error);
-    }
+      await loadUserPosts();
+    } catch (error) {}
   };
 
   const handleEditComment = async (
@@ -460,20 +571,16 @@ export function ProfilePage() {
     if (!userToken) return;
     try {
       await updateComment(commentId, content, userToken);
-      await loadUserPosts(); // reload posts to show updated comment
-    } catch (error) {
-      console.error("Failed to edit comment:", error);
-    }
+      await loadUserPosts();
+    } catch (error) {}
   };
 
   const handleDeleteComment = async (_postId: string, commentId: string) => {
     if (!userToken) return;
     try {
       await deleteComment(commentId, userToken);
-      await loadUserPosts(); // reload posts to remove deleted comment
-    } catch (error) {
-      console.error("Failed to delete comment:", error);
-    }
+      await loadUserPosts();
+    } catch (error) {}
   };
 
   // Edit Profile Button handler
@@ -684,10 +791,18 @@ export function ProfilePage() {
                   src={
                     imagePreview ||
                     (profile.avatar
-                      ? `http://localhost:5000/Uploads/${profile.avatar}`
+                      ? profile.avatar.startsWith("http") ||
+                        profile.avatar.startsWith("/")
+                        ? profile.avatar
+                        : profile.avatar.startsWith("avatar")
+                        ? `/seed-images/${profile.avatar}`
+                        : `http://localhost:5000/Uploads/${
+                            profile.avatar.split("?")[0]
+                          }?t=${Date.now()}`
                       : "/placeholder-avatar.jpg")
                   }
                   alt={profile.name}
+                  key={profile.avatar} // Force re-render when avatar changes
                 />
                 <AvatarFallback className="bg-red-500 text-white text-2xl">
                   {profile.name
@@ -837,18 +952,24 @@ export function ProfilePage() {
                   </div>
 
                   {!isOwnProfile && (
-                    <Button
+                    <button
                       onClick={handleFollowToggle}
-                      className={
+                      disabled={isFollowLoading}
+                      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed h-10 px-4 py-2 ${
                         isFollowing
-                          ? "bg-gray-500 hover:bg-gray-600"
-                          : "bg-red-500 hover:bg-red-600"
-                      }
+                          ? "bg-gray-200 hover:bg-gray-300 text-gray-800 border border-gray-300"
+                          : "bg-red-500 hover:bg-red-600 text-white"
+                      }`}
                     >
-                      {isFollowing ? (
+                      {isFollowLoading ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          Loading...
+                        </>
+                      ) : isFollowing ? (
                         <>
                           <UserMinus className="h-4 w-4 mr-2" />
-                          Unfollow
+                          Following
                         </>
                       ) : (
                         <>
@@ -856,7 +977,7 @@ export function ProfilePage() {
                           Follow
                         </>
                       )}
-                    </Button>
+                    </button>
                   )}
                 </div>
               )}
@@ -881,9 +1002,7 @@ export function ProfilePage() {
         ) : (
           posts
             .map((post) => {
-              // Skip posts with missing required data
               if (!post || !post._id || !post.author) {
-                console.warn("Skipping post with missing data:", post);
                 return null;
               }
 

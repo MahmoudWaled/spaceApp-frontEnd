@@ -28,7 +28,6 @@ export function CreatePost({ onSubmit }: CreatePostProps) {
       setSelectedImage(null);
       setImagePreview(null);
     } catch (error) {
-      console.error("Error creating post:", error);
     } finally {
       setIsSubmitting(false);
     }

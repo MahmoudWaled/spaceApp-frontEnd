@@ -1,4 +1,4 @@
-import  {  useState} from "react";
+import { useState } from "react";
 import * as Yup from "yup";
 import { useFormik } from "formik";
 import { Link, useNavigate } from "react-router-dom";
@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { Input } from "../ui/input";
 
 export default function Register() {
-
   const [error, setError] = useState<string[] | null>(null);
 
   type registerValues = {
@@ -18,15 +17,14 @@ export default function Register() {
     confirmPassword: string;
     username: string;
     name: string;
-    profileImage?: File| null;
-  }
+    profileImage?: File | null;
+  };
 
   const navigate = useNavigate();
   async function handelRegister(values: registerValues) {
     register(values)
       .then(() => {
         setError(null);
-        console.log("registered !");
         navigate("/login");
       })
       .catch((apiResponse) => {
@@ -35,7 +33,6 @@ export default function Register() {
           : setError(apiResponse.response?.data?.message);
       });
   }
-    
 
   const validationSchema = Yup.object().shape({
     username: Yup.string()
@@ -56,8 +53,8 @@ export default function Register() {
       )
       .required("password is required"),
     confirmPassword: Yup.string()
-      .oneOf([Yup.ref("password")], "passwords must match")
-      .required("password is required"),
+      .oneOf([Yup.ref("password")], "passwords do not match")
+      .required("confirm password is required"),
     profileImage: Yup.mixed().nullable(),
   });
 
@@ -67,10 +64,12 @@ export default function Register() {
       name: "",
       email: "",
       password: "",
-      confirmPassword:"",
-      profileImage: null
+      confirmPassword: "",
+      profileImage: null,
     },
     validationSchema,
+    validateOnChange: true,
+    validateOnBlur: true,
     onSubmit: handelRegister,
   });
 
@@ -183,7 +182,6 @@ export default function Register() {
                       type="password"
                       name="password"
                       value={formik.values.password}
-                      required
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
                       className={cn(
@@ -209,7 +207,6 @@ export default function Register() {
                       type="password"
                       name="confirmPassword"
                       value={formik.values.confirmPassword}
-                      required
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
                       className={cn(
@@ -221,6 +218,7 @@ export default function Register() {
                     />
 
                     {formik.touched.confirmPassword &&
+                      formik.values.confirmPassword &&
                       formik.errors.confirmPassword && (
                         <span className="text-red-500">
                           {formik.errors.confirmPassword}
@@ -251,9 +249,9 @@ export default function Register() {
                     )}
                   {error && (
                     <div className="text-red-500 text-sm space-y-1">
-                      {typeof(error)== 'string' ? error :   error.map((e, i) => (
-                        <p key={i}>{e}</p>
-                      )) }
+                      {typeof error == "string"
+                        ? error
+                        : error.map((e, i) => <p key={i}>{e}</p>)}
                     </div>
                   )}
                   <Button type="submit" className="w-full mt-5">

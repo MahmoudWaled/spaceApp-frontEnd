@@ -1,4 +1,4 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
 import { Heart, MessageCircle, UserPlus, UserMinus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,7 @@ interface PostProps {
   onReport?: () => void;
   onEditComment?: (commentId: string, content: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onLikeComment?: (commentId: string) => void;
   onFollowToggle?: (userId: string, isFollowing: boolean) => void;
 }
 
@@ -87,6 +88,7 @@ export function Post({
   onReport,
   onEditComment,
   onDeleteComment,
+  onLikeComment,
   onFollowToggle,
 }: PostProps) {
   const navigate = useNavigate();
@@ -94,7 +96,13 @@ export function Post({
   const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
   const [isLiking, setIsLiking] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(user.isFollowing || false);
   const currentUser = useContext(UserContext);
+
+  // Update isFollowing when user.isFollowing prop changes
+  useEffect(() => {
+    setIsFollowing(user.isFollowing || false);
+  }, [user.isFollowing]);
 
   const formatContent = (text: string) => {
     return text.split(" ").map((word, index) => {
@@ -165,18 +173,29 @@ export function Post({
     }
 
     try {
-      if (user.isFollowing) {
+      if (isFollowing) {
         await unfollowUser(user.id, token);
+        setIsFollowing(false);
         onFollowToggle(user.id, false);
       } else {
         await followUser(user.id, token);
+        setIsFollowing(true);
         onFollowToggle(user.id, true);
       }
     } catch (error: any) {
-      console.error("Error toggling follow:", error);
-      // Show user-friendly error message
-      if (error.message?.includes("Authentication failed")) {
-        alert("Please log in again to continue.");
+      // Handle "Already following" or "Not following" errors gracefully
+      const errorMsg = error.response?.data?.message || "";
+
+      if (errorMsg.includes("Already following")) {
+        // User is already following, just update UI
+        setIsFollowing(true);
+        onFollowToggle(user.id, true);
+      } else if (
+        errorMsg.includes("not following") ||
+        errorMsg.includes("Not following")
+      ) {
+        setIsFollowing(false);
+        onFollowToggle(user.id, false);
       } else {
         alert("Failed to follow/unfollow user. Please try again.");
       }
@@ -193,7 +212,12 @@ export function Post({
               <AvatarImage
                 src={
                   user.image
-                    ? `http://localhost:5000/Uploads/${user.image}`
+                    ? user.image.startsWith("http") ||
+                      user.image.startsWith("/")
+                      ? user.image
+                      : user.image.startsWith("avatar")
+                      ? `/seed-images/${user.image}`
+                      : `http://localhost:5000/Uploads/${user.image}`
                     : "/placeholder.svg"
                 }
                 alt={user.name}
@@ -227,10 +251,10 @@ export function Post({
                 onClick={handleFollowToggle}
                 className="flex items-center space-x-1 text-xs"
               >
-                {user.isFollowing ? (
+                {isFollowing ? (
                   <>
                     <UserMinus className="h-3 w-3" />
-                    <span>Unfollow</span>
+                    <span>Following</span>
                   </>
                 ) : (
                   <>
@@ -284,9 +308,17 @@ export function Post({
                 <img
                   src={
                     images?.[0]
-                      ? `http://localhost:5000/Uploads/${images[0]}`
+                      ? images[0].startsWith("http") ||
+                        images[0].startsWith("/")
+                        ? images[0]
+                        : images[0].startsWith("post") ||
+                          images[0].startsWith("avatar")
+                        ? `/seed-images/${images[0]}`
+                        : `http://localhost:5000/Uploads/${images[0]}`
                       : "/placeholder.svg"
                   }
+                  alt="Post image"
+                  className="w-full h-auto max-h-96 object-cover"
                 />
               </div>
             ) : (
@@ -295,7 +327,13 @@ export function Post({
                   <img
                     src={
                       images[currentImageIndex]
-                        ? `http://localhost:5000/Uploads/${images[currentImageIndex]}`
+                        ? images[currentImageIndex].startsWith("http") ||
+                          images[currentImageIndex].startsWith("/")
+                          ? images[currentImageIndex]
+                          : images[currentImageIndex].startsWith("post") ||
+                            images[currentImageIndex].startsWith("avatar")
+                          ? `/seed-images/${images[currentImageIndex]}`
+                          : `http://localhost:5000/Uploads/${images[currentImageIndex]}`
                         : "/placeholder.svg"
                     }
                     alt={`Post image ${currentImageIndex + 1}`}
@@ -304,7 +342,7 @@ export function Post({
                 </div>
                 {images.length > 1 && (
                   <div className="flex space-x-2 overflow-x-auto pb-2">
-                    {images.map((_, index) => (
+                    {images.map((img, index) => (
                       <button
                         key={index}
                         onClick={() => setCurrentImageIndex(index)}
@@ -317,8 +355,13 @@ export function Post({
                       >
                         <img
                           src={
-                            images[currentImageIndex]
-                              ? `http://localhost:5000/Uploads/${images[currentImageIndex]}`
+                            img
+                              ? img.startsWith("http") || img.startsWith("/")
+                                ? img
+                                : img.startsWith("post") ||
+                                  img.startsWith("avatar")
+                                ? `/seed-images/${img}`
+                                : `http://localhost:5000/Uploads/${img}`
                               : "/placeholder.svg"
                           }
                           alt={`Thumbnail ${index + 1}`}
@@ -393,6 +436,7 @@ export function Post({
                       timestamp: formatDate(comment.timestamp),
                     }}
                     currentUserId={currentUserId}
+                    onLike={(commentId) => onLikeComment?.(commentId)}
                     onEdit={(content) => onEditComment?.(comment.id, content)}
                     onDelete={() => onDeleteComment?.(comment.id)}
                   />

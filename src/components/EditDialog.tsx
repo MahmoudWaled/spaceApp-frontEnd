@@ -37,7 +37,6 @@ export function EditDialog({
       await onSave(content.trim());
       onClose();
     } catch (error) {
-      console.error("Error saving:", error);
     } finally {
       setIsSaving(false);
     }

@@ -3,7 +3,6 @@ import { ThemeProvider } from "./components/theme-provider";
 import { Layout } from "./components/Layout/Layout";
 import { HomePage } from "./pages/HomePage/HomePage";
 import { Explore } from "./pages/explore";
-import { Profile } from "./pages/profile";
 import { ProfilePage } from "./pages/ProfilePage/ProfilePage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Bookmarks } from "./pages/bookmarks";
@@ -33,7 +32,6 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/home" element={<HomePage />} />
               <Route path="/explore" element={<Explore />} />
-              <Route path="/profile" element={<Profile />} />
               <Route
                 path="/profile/:userId"
                 element={

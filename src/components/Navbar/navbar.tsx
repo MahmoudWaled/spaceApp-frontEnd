@@ -141,8 +141,14 @@ export function Navbar() {
               items={[
                 {
                   label: "Profile",
-                  onClick: () =>
-                    navigate(`/profile/${loggedUser?.userData?.id}`),
+                  onClick: () => {
+                    const userId = loggedUser?.userData?.id;
+                    if (userId) {
+                      navigate(`/profile/${userId}`);
+                    } else {
+                      navigate("/profile");
+                    }
+                  },
                 },
                 {
                   label: "Settings",
@@ -155,11 +161,16 @@ export function Navbar() {
                 },
               ]}
             >
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8" key={loggedUser?.userData?.avatar}>
                 <AvatarImage
                   src={
                     loggedUser?.userData?.avatar
-                      ? `http://localhost:5000/Uploads/${loggedUser?.userData?.avatar}`
+                      ? loggedUser.userData.avatar.startsWith("http") ||
+                        loggedUser.userData.avatar.startsWith("/")
+                        ? loggedUser.userData.avatar
+                        : loggedUser.userData.avatar.startsWith("avatar")
+                        ? `/seed-images/${loggedUser.userData.avatar}`
+                        : `http://localhost:5000/Uploads/${loggedUser.userData.avatar}`
                       : "/placeholder-avatar.jpg"
                   }
                   alt="User"
@@ -200,11 +211,21 @@ export function Navbar() {
 
                   <div className="border-t pt-4 mt-4">
                     <div className="flex items-center space-x-3 mb-4">
-                      <Avatar className="h-10 w-10">
+                      <Avatar
+                        className="h-10 w-10"
+                        key={loggedUser?.userData?.avatar}
+                      >
                         <AvatarImage
                           src={
                             loggedUser?.userData?.avatar
-                              ? `http://localhost:5000/Uploads/${loggedUser?.userData?.avatar}`
+                              ? loggedUser.userData.avatar.startsWith("http") ||
+                                loggedUser.userData.avatar.startsWith("/")
+                                ? loggedUser.userData.avatar
+                                : loggedUser.userData.avatar.startsWith(
+                                    "avatar"
+                                  )
+                                ? `/seed-images/${loggedUser.userData.avatar}`
+                                : `http://localhost:5000/Uploads/${loggedUser.userData.avatar}`
                               : "/placeholder-avatar.jpg"
                           }
                           alt="User"
@@ -214,9 +235,11 @@ export function Navbar() {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium">John Doe</p>
+                        <p className="font-medium">
+                          {loggedUser?.userData?.name || "User"}
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          @johndoe
+                          @{loggedUser?.userData?.username || "username"}
                         </p>
                       </div>
                     </div>
@@ -225,9 +248,14 @@ export function Navbar() {
                       variant="ghost"
                       className="justify-start w-full"
                       size="sm"
-                      onClick={() =>
-                        navigate(`/profile/${loggedUser?.userData?.id}`)
-                      }
+                      onClick={() => {
+                        const userId = loggedUser?.userData?.id;
+                        if (userId) {
+                          navigate(`/profile/${userId}`);
+                        } else {
+                          navigate("/profile");
+                        }
+                      }}
                     >
                       <User className="mr-2 w-4 h-4" />
                       Profile
