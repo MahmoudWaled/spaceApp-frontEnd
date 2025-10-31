@@ -10,7 +10,7 @@ A modern **frontend** social media interface built with **React**, **TypeScript*
 It provides a clean, responsive, and interactive UI for creating posts, managing profiles, and engaging with other users in a space-themed environment.
 
 ## Live Preview :
-https://devserver-main--spacesocialapp.netlify.app/login
+https://spacesocialapp.netlify.app/
 
 ## Features
 
