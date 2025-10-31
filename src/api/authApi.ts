@@ -1,4 +1,5 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/env";
 
 type LoginValues = {
   email: string;
@@ -6,10 +7,7 @@ type LoginValues = {
 };
 
 export async function login(values: LoginValues) {
-  const response = await axios.post(
-    "http://space-app-production.up.railway.app/api/auth/login",
-    values
-  );
+  const response = await axios.post(`${API_BASE_URL}/auth/login`, values);
   return response.data;
 }
 
@@ -34,23 +32,19 @@ export async function register(values: registerValues) {
     formData.append("profileImage", values.profileImage);
   }
 
-  const response = await axios.post(
-    "http://space-app-production.up.railway.app/api/auth/register",
-    formData
-  );
+  const response = await axios.post(`${API_BASE_URL}/auth/register`, formData);
   return response.data;
 }
 
 export async function forgotPassword(email: string) {
-  const response = await axios.post(
-    "http://space-app-production.up.railway.app/api/auth/forgot-password",
-    { email }
-  );
+  const response = await axios.post(`${API_BASE_URL}/auth/forgot-password`, {
+    email,
+  });
   return response.data;
 }
 
 export async function resetPassword(token: string, password: string) {
-  const endpoint = `http://space-app-production.up.railway.app/api/auth/reset-password/${token}`;
+  const endpoint = `${API_BASE_URL}/auth/reset-password/${token}`;
   const response = await axios.post(endpoint, { password });
   return response.data;
 }

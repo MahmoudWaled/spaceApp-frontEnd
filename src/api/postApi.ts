@@ -1,8 +1,9 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/env";
 
 export function getPosts() {
   const fetchPosts = async () => {
-    const { data } = await axios.get("http://localhost:5000/api/posts");
+    const { data } = await axios.get(`${API_BASE_URL}/posts`);
     return data;
   };
   return fetchPosts;
@@ -10,7 +11,7 @@ export function getPosts() {
 
 export async function toggleLikePost(postId: string, token: string) {
   const response = await axios.post(
-    `http://localhost:5000/api/posts/${postId}/like`,
+    `${API_BASE_URL}/posts/${postId}/like`,
     {},
     {
       headers: {
@@ -27,7 +28,7 @@ export async function addComment(
   token: string
 ) {
   try {
-    const endpoint = `http://localhost:5000/api/comments/${postId}`;
+    const endpoint = `${API_BASE_URL}/comments/${postId}`;
     const payload = { text: content };
 
     const response = await axios.post(endpoint, payload, {
@@ -46,14 +47,11 @@ export async function addComment(
 
 export async function deletePost(postId: string, token: string) {
   try {
-    const response = await axios.delete(
-      `http://localhost:5000/api/posts/${postId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await axios.delete(`${API_BASE_URL}/posts/${postId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
     return response.data;
   } catch (error: any) {
@@ -69,7 +67,7 @@ export async function updatePost(
 ) {
   try {
     const response = await axios.put(
-      `http://localhost:5000/api/posts/${postId}`,
+      `${API_BASE_URL}/posts/${postId}`,
       { content },
       {
         headers: {
@@ -89,7 +87,7 @@ export async function updatePost(
 export async function deleteComment(commentId: string, token: string) {
   try {
     const response = await axios.delete(
-      `http://localhost:5000/api/comments/${commentId}`,
+      `${API_BASE_URL}/comments/${commentId}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -111,7 +109,7 @@ export async function updateComment(
 ) {
   try {
     const response = await axios.put(
-      `http://localhost:5000/api/comments/${commentId}`,
+      `${API_BASE_URL}/comments/${commentId}`,
       { text: content },
       {
         headers: {
@@ -140,16 +138,12 @@ export async function createPost(
       formData.append("image", image);
     }
 
-    const response = await axios.post(
-      `http://localhost:5000/api/posts`,
-      formData,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
+    const response = await axios.post(`${API_BASE_URL}/posts`, formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
     return response.data;
   } catch (error: any) {

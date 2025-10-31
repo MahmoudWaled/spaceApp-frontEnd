@@ -1,14 +1,15 @@
 import axios from "axios";
+import { API_BASE_URL } from "../config/env";
 
 export async function getProfile(id: string) {
-  const { data } = await axios.get(`http://localhost:5000/api/user/${id}`);
+  const { data } = await axios.get(`${API_BASE_URL}/user/${id}`);
   return data;
 }
 
 export async function followUser(userId: string, token: string) {
   try {
     const response = await axios.post(
-      `http://localhost:5000/api/user/${userId}/follow`,
+      `${API_BASE_URL}/user/${userId}/follow`,
       {},
       {
         headers: {
@@ -34,7 +35,7 @@ export async function followUser(userId: string, token: string) {
 export async function unfollowUser(userId: string, token: string) {
   try {
     const response = await axios.delete(
-      `http://localhost:5000/api/user/${userId}/unFollow`,
+      `${API_BASE_URL}/user/${userId}/unFollow`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -63,7 +64,7 @@ export async function getFollowers(userId: string, token?: string) {
     }
 
     const response = await axios.get(
-      `http://localhost:5000/api/Follow/followers/${userId}`,
+      `${API_BASE_URL}/Follow/followers/${userId}`,
       { headers }
     );
 
@@ -82,7 +83,7 @@ export async function getFollowing(userId: string, token?: string) {
     }
 
     const response = await axios.get(
-      `http://localhost:5000/api/Follow/following/${userId}`,
+      `${API_BASE_URL}/Follow/following/${userId}`,
       { headers }
     );
 
@@ -100,10 +101,9 @@ export async function getUserProfile(userId: string, token?: string) {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await axios.get(
-      `http://localhost:5000/api/user/${userId}`,
-      { headers }
-    );
+    const response = await axios.get(`${API_BASE_URL}/user/${userId}`, {
+      headers,
+    });
 
     return response.data;
   } catch (error: any) {
@@ -125,10 +125,9 @@ export async function getUserPosts(userId: string, token?: string) {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await axios.get(
-      `http://localhost:5000/api/posts/user/${userId}`,
-      { headers }
-    );
+    const response = await axios.get(`${API_BASE_URL}/posts/user/${userId}`, {
+      headers,
+    });
 
     return response.data;
   } catch (error: any) {
@@ -155,7 +154,7 @@ export async function updateProfile(
     if (profileData.avatar) formData.append("avatar", profileData.avatar);
 
     const response = await axios.put(
-      `http://localhost:5000/api/users/profile`,
+      `${API_BASE_URL}/users/profile`,
       formData,
       {
         headers: {
@@ -175,7 +174,7 @@ export async function updateProfile(
 export async function deleteProfileImage(token: string) {
   try {
     const response = await axios.delete(
-      `http://localhost:5000/api/users/profile/avatar`,
+      `${API_BASE_URL}/users/profile/avatar`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -200,7 +199,7 @@ export async function updateFullProfile(
   if (token) headers["Authorization"] = `Bearer ${token}`;
   try {
     const response = await axios.put(
-      `http://localhost:5000/api/user/${userId}`,
+      `${API_BASE_URL}/user/${userId}`,
       formData,
       { headers }
     );
@@ -219,7 +218,7 @@ export async function updateProfileImage(
   const headers: any = { "Content-Type": "multipart/form-data" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const response = await axios.patch(
-    `http://localhost:5000/api/user/${userId}`,
+    `${API_BASE_URL}/user/${userId}`,
     formData,
     { headers }
   );
