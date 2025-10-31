@@ -1,3 +1,9 @@
+<img width="642" height="864" alt="Screenshot 2025-10-31 025529" src="https://github.com/user-attachments/assets/28deadb8-aa9c-4f16-8b2c-9c13a8b21470" />
+<img width="634" height="854" alt="Screenshot 2025-10-31 025513" src="https://github.com/user-attachments/assets/74bb96d5-01b9-4a97-9559-b8934e892a06" />
+<img width="1792" height="850" alt="Screenshot 2025-10-31 025451" src="https://github.com/user-attachments/assets/8d31ec16-23e1-4200-b554-286652ebfd29" />
+<img width="1847" height="866" alt="Screenshot 2025-10-31 025428" src="https://github.com/user-attachments/assets/2bc1c706-971d-42eb-be8a-e9852bdd9c3a" />
+<img width="1893" height="862" alt="Screenshot 2025-10-31 025153" src="https://github.com/user-attachments/assets/8155c019-7f42-4175-86a2-7626e2c23dff" />
+<img width="1900" height="876" alt="Screenshot 2025-10-31 025119" src="https://github.com/user-attachments/assets/0ea0cb87-16e8-467d-a900-d771bfd7e0cc" />
 # Space Social App
 
 A modern **frontend** social media interface built with **React**, **TypeScript**, and **Tailwind CSS**.  
